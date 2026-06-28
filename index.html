@@ -3,45 +3,62 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f7f5ef" />
-  <title>VietNest</title>
+  <meta name="theme-color" content="#f7f1e7" />
+  <title>VietNest Trips</title>
   <link rel="preconnect" href="https://images.unsplash.com" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="phone-app">
     <header class="topbar">
-      <button class="icon-btn" id="cityBtn" type="button" aria-label="Город" title="Город">
-        <span>⌄</span>
+      <button class="location-pill" id="cityBtn" type="button" aria-label="Выбрать регион">
+        <span id="cityLabel">Da Nang</span>
+        <b>регион</b>
       </button>
-      <div class="brand">
+
+      <div class="brand" aria-label="VietNest Trips">
         <strong>VietNest</strong>
-        <span>rentals from FB Marketplace</span>
+        <span id="brandSubtitle">туристическая аренда</span>
       </div>
-      <button class="icon-btn fav-indicator" id="favShortcut" type="button" aria-label="Избранное" title="Избранное">
-        <span>♡</span>
+
+      <button class="icon-btn fav-indicator" id="favShortcut" type="button" aria-label="Открыть шортлист" title="Шортлист">
+        <span>♥</span>
         <b id="favCount">0</b>
       </button>
     </header>
 
-    <main>
-      <section class="filters" aria-label="Фильтры">
-        <button class="filter-chip active" data-filter="all" type="button">Все</button>
-        <button class="filter-chip" data-filter="danang" type="button">Da Nang</button>
-        <button class="filter-chip" data-filter="nhatrang" type="button">Nha Trang</button>
-        <button class="filter-chip" data-filter="villa" type="button">Виллы</button>
-        <button class="filter-chip" data-filter="pet" type="button">Pet OK</button>
-      </section>
+    <main class="app-main">
+      <section class="screen active" id="discoverScreen">
+        <div class="trip-panel">
+          <div>
+            <span>travel home base</span>
+            <strong id="tripSummary">Da Nang · море · до $1,200</strong>
+            <p id="tripSubline">пара · 1+ спальня · workation</p>
+          </div>
+          <button class="small-glass-btn" id="editPrefsBtn" type="button">Настроить</button>
+        </div>
 
-      <section class="screen active" id="swipeScreen">
+        <div class="quick-rail" aria-label="Быстрые режимы">
+          <button class="filter-chip active" data-filter="best" type="button">Лучшее</button>
+          <button class="filter-chip" data-filter="beach" type="button">У моря</button>
+          <button class="filter-chip" data-filter="workation" type="button">Workation</button>
+          <button class="filter-chip" data-filter="villa" type="button">Виллы</button>
+          <button class="filter-chip" data-filter="calm" type="button">Тихо</button>
+          <button class="filter-chip" data-filter="pool" type="button">Бассейн</button>
+          <button class="filter-chip" data-filter="pet" type="button">Pet OK</button>
+        </div>
+
         <div class="deck-status">
-          <span id="positionLabel">1 / 6</span>
-          <strong id="scoreLabel">92% match</strong>
+          <span id="positionLabel">новых 0 · свайпов 0</span>
+          <strong id="scoreLabel">—</strong>
         </div>
 
         <article class="home-card" id="homeCard" aria-live="polite">
+          <div class="swipe-stamp pass">не моё</div>
+          <div class="swipe-stamp like">в шортлист</div>
+
           <div class="photo-wrap">
-            <img id="homePhoto" src="" alt="" />
+            <img id="homePhoto" src="" alt="" draggable="false" />
             <div class="photo-shade"></div>
             <div class="source-row">
               <span id="sourceBadge">FB Marketplace</span>
@@ -54,56 +71,65 @@
           </div>
 
           <div class="card-copy">
-            <p class="area" id="areaLabel">An Thuong, Da Nang</p>
+            <div class="card-topline">
+              <p class="area" id="areaLabel">An Thuong, Da Nang</p>
+              <span class="seen-pill" id="seenPill">новое</span>
+            </div>
             <h1 id="titleLabel">Светлый кондо у My Khe</h1>
+            <div class="match-reasons" id="matchReasons"></div>
             <div class="specs" id="specs"></div>
             <p class="description" id="description"></p>
             <div class="tags" id="tags"></div>
           </div>
         </article>
 
-        <div class="actions">
-          <button class="decision no" id="skipBtn" type="button" aria-label="Пропустить" title="Пропустить">×</button>
+        <div class="actions" aria-label="Действия с вариантом">
+          <button class="action-pill pass" id="skipBtn" type="button"><span>×</span><b>Не моё</b></button>
           <button class="decision more" id="detailsBtn" type="button" aria-label="Подробнее" title="Подробнее">i</button>
-          <button class="decision yes" id="saveBtn" type="button" aria-label="В избранное" title="В избранное">♡</button>
+          <button class="action-pill like" id="saveBtn" type="button"><span>♥</span><b>В шортлист</b></button>
         </div>
       </section>
 
-      <section class="screen" id="favoritesScreen">
+      <section class="screen favorites-screen" id="favoritesScreen">
         <div class="section-title">
           <div>
             <span>shortlist</span>
             <h2>Избранное</h2>
+            <p>Сохранил — сразу видишь контакт, FB-ссылку и готовый текст первого сообщения.</p>
           </div>
           <button class="text-btn" id="clearBtn" type="button">Очистить</button>
         </div>
         <div class="saved-list" id="savedList"></div>
       </section>
 
-      <section class="screen" id="contactsScreen">
+      <section class="screen plan-screen" id="planScreen">
         <div class="section-title">
           <div>
-            <span>contacts</span>
-            <h2>Без личных сообщений</h2>
+            <span>travel radar</span>
+            <h2>Радар поездки</h2>
+            <p>Это не список и не карта: новые варианты выше, просмотренные ниже, а шортлист готов к контакту.</p>
           </div>
+          <button class="text-btn" id="openOnboardingFromPlan" type="button">Настроить</button>
         </div>
-        <div class="info-panel">
-          <strong>Логика мини-аппа</strong>
-          <p>Пользователь свайпает квартиры, сохраняет понравившиеся варианты, а в избранном видит контакт и кнопку перехода на исходное объявление Facebook Marketplace.</p>
-          <div class="flow">
-            <span>FB import</span>
-            <span>Swipe</span>
-            <span>Favorites</span>
-            <span>Redirect</span>
+
+        <div class="plan-card">
+          <div class="plan-orb" aria-hidden="true"></div>
+          <strong id="planSummary">пара · 1+ спальня · просмотренные ниже</strong>
+          <p>Свайп — основной experience для туристической аренды: быстро чувствуешь район, вайб и компромиссы.</p>
+          <div class="stat-grid">
+            <div><b id="statFresh">0</b><span>новых</span></div>
+            <div><b id="statSeen">0</b><span>свайпов</span></div>
+            <div><b id="statSaved">0</b><span>сохранено</span></div>
           </div>
+          <button class="secondary wide" id="resetSeenBtn" type="button">Вернуть просмотренные наверх</button>
         </div>
       </section>
     </main>
 
     <nav class="tabbar" aria-label="Основная навигация">
-      <button class="tab active" data-screen="swipe" type="button"><span>⌂</span><b>Лента</b></button>
-      <button class="tab" data-screen="favorites" type="button"><span>♡</span><b>Избранное</b></button>
-      <button class="tab" data-screen="contacts" type="button"><span>↗</span><b>Контакты</b></button>
+      <button class="tab active" data-screen="discover" type="button"><span>◇</span><b>Подбор</b></button>
+      <button class="tab" data-screen="favorites" type="button"><span>♥</span><b>Шортлист</b></button>
+      <button class="tab" data-screen="plan" type="button"><span>◌</span><b>Радар</b></button>
     </nav>
   </div>
 
@@ -113,29 +139,44 @@
         <span id="sheetArea">Da Nang</span>
         <strong id="sheetTitle">Apartment</strong>
       </div>
-      <button class="icon-btn" id="closeSheet" type="button" aria-label="Закрыть">×</button>
+      <button class="icon-btn flat" id="closeSheet" type="button" aria-label="Закрыть">×</button>
     </div>
+
     <div class="sheet-body">
       <div class="sheet-gallery" id="sheetGallery"></div>
+      <div class="fit-panel">
+        <strong>Почему подходит</strong>
+        <div class="reason-strip" id="sheetReasons"></div>
+      </div>
       <div class="detail-grid" id="detailGrid"></div>
+
       <section>
         <h3>О варианте</h3>
         <p id="sheetDescription"></p>
       </section>
+
       <section>
         <h3>Контакт</h3>
-        <div class="contact-card">
+        <div class="locked-card" id="contactLock">
+          <strong>Контакт скрыт</strong>
+          <span>Сохрани вариант в шортлист — и откроются контакт, FB Marketplace и быстрый текст сообщения.</span>
+        </div>
+        <div class="contact-card hidden" id="contactCard">
           <div>
             <strong id="contactName"></strong>
             <span id="contactLine"></span>
           </div>
-          <button class="text-btn" id="copyContact" type="button">Копировать</button>
+          <div class="contact-actions">
+            <button class="mini-btn" id="copyContact" type="button">Контакт</button>
+            <button class="mini-btn" id="copyMessage" type="button">Сообщение</button>
+          </div>
         </div>
       </section>
     </div>
+
     <div class="sheet-actions">
-      <button class="secondary" id="sheetSave" type="button">♡ В избранное</button>
-      <button class="primary" id="openFb" type="button">Открыть FB MP</button>
+      <button class="secondary" id="sheetSecondary" type="button">Закрыть</button>
+      <button class="primary" id="sheetPrimary" type="button">Сохранить и открыть</button>
     </div>
   </dialog>
 
@@ -143,15 +184,92 @@
     <div class="sheet-head">
       <div>
         <span>region</span>
-        <strong>Быстрый выбор</strong>
+        <strong>Быстрый выбор города</strong>
       </div>
-      <button class="icon-btn" id="closeCity" type="button" aria-label="Закрыть">×</button>
+      <button class="icon-btn flat" id="closeCity" type="button" aria-label="Закрыть">×</button>
     </div>
     <div class="sheet-body city-options">
-      <button data-filter="all" type="button">Весь Вьетнам</button>
-      <button data-filter="danang" type="button">Da Nang</button>
-      <button data-filter="nhatrang" type="button">Nha Trang</button>
-      <button data-filter="villa" type="button">Только виллы</button>
+      <button data-destination="danang" type="button">Da Nang <span>пляж, кафе, база</span></button>
+      <button data-destination="nhatrang" type="button">Nha Trang <span>море и город</span></button>
+      <button data-destination="hoian" type="button">Hoi An <span>slow travel</span></button>
+      <button data-destination="hcmc" type="button">Ho Chi Minh <span>workation и движ</span></button>
+      <button data-destination="phuquoc" type="button">Phu Quoc <span>островной режим</span></button>
+      <button data-destination="all" type="button">Весь Вьетнам <span>сначала вдохновиться</span></button>
+    </div>
+  </dialog>
+
+  <dialog class="bottom-sheet onboarding-sheet" id="onboardingSheet">
+    <div class="sheet-head">
+      <div>
+        <span>onboarding</span>
+        <strong>Настроим поездку</strong>
+      </div>
+      <button class="icon-btn flat" id="closeOnboarding" type="button" aria-label="Закрыть">×</button>
+    </div>
+
+    <div class="sheet-body onboarding-body">
+      <section class="onboarding-hero">
+        <span>не список и не карта</span>
+        <h1>Выбираем жильё как travel experience.</h1>
+        <p>Ответь на параметры один раз — дальше просто свайпай. Новые варианты будут выше, просмотренные не исчезнут, а уйдут ниже.</p>
+      </section>
+
+      <fieldset data-choice="destination" data-mode="single">
+        <legend>Где базироваться?</legend>
+        <div class="choice-grid two">
+          <button class="choice-pill" data-value="danang" type="button">Da Nang</button>
+          <button class="choice-pill" data-value="nhatrang" type="button">Nha Trang</button>
+          <button class="choice-pill" data-value="hoian" type="button">Hoi An</button>
+          <button class="choice-pill" data-value="hcmc" type="button">Ho Chi Minh</button>
+          <button class="choice-pill" data-value="phuquoc" type="button">Phu Quoc</button>
+          <button class="choice-pill" data-value="all" type="button">Весь Вьетнам</button>
+        </div>
+      </fieldset>
+
+      <fieldset data-choice="traveler" data-mode="single">
+        <legend>Кто едет?</legend>
+        <div class="choice-grid two">
+          <button class="choice-pill" data-value="solo" type="button">Соло</button>
+          <button class="choice-pill" data-value="couple" type="button">Пара</button>
+          <button class="choice-pill" data-value="family" type="button">Семья</button>
+          <button class="choice-pill" data-value="friends" type="button">Друзья</button>
+        </div>
+      </fieldset>
+
+      <fieldset data-choice="vibes" data-mode="multi">
+        <legend>Что важно в поездке?</legend>
+        <div class="need-grid">
+          <button class="need-pill" data-value="beach" type="button">Море рядом</button>
+          <button class="need-pill" data-value="workation" type="button">Рабочее место</button>
+          <button class="need-pill" data-value="calm" type="button">Тихий район</button>
+          <button class="need-pill" data-value="villa" type="button">Вилла/дом</button>
+          <button class="need-pill" data-value="pool" type="button">Бассейн</button>
+          <button class="need-pill" data-value="pet" type="button">С животными</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <div class="range-head">
+          <legend>Бюджет в месяц</legend>
+          <output id="budgetValue">до $1,200</output>
+        </div>
+        <input class="budget-range" id="budgetRange" type="range" min="500" max="3500" step="50" value="1200" />
+      </fieldset>
+
+      <fieldset data-choice="bedrooms" data-mode="single">
+        <legend>Спальни</legend>
+        <div class="choice-grid two">
+          <button class="choice-pill" data-value="studio" type="button">Студия</button>
+          <button class="choice-pill" data-value="1" type="button">1+</button>
+          <button class="choice-pill" data-value="2" type="button">2+</button>
+          <button class="choice-pill" data-value="3" type="button">3+</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="secondary" id="resetPrefs" type="button">Сбросить</button>
+      <button class="primary" id="applyPrefs" type="button">Начать свайп</button>
     </div>
   </dialog>
 
