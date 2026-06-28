@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f5ef" />
+  <title>VietNest</title>
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="phone-app">
+    <header class="topbar">
+      <button class="icon-btn" id="cityBtn" type="button" aria-label="Город" title="Город">
+        <span>⌄</span>
+      </button>
+      <div class="brand">
+        <strong>VietNest</strong>
+        <span>rentals from FB Marketplace</span>
+      </div>
+      <button class="icon-btn fav-indicator" id="favShortcut" type="button" aria-label="Избранное" title="Избранное">
+        <span>♡</span>
+        <b id="favCount">0</b>
+      </button>
+    </header>
+
+    <main>
+      <section class="filters" aria-label="Фильтры">
+        <button class="filter-chip active" data-filter="all" type="button">Все</button>
+        <button class="filter-chip" data-filter="danang" type="button">Da Nang</button>
+        <button class="filter-chip" data-filter="nhatrang" type="button">Nha Trang</button>
+        <button class="filter-chip" data-filter="villa" type="button">Виллы</button>
+        <button class="filter-chip" data-filter="pet" type="button">Pet OK</button>
+      </section>
+
+      <section class="screen active" id="swipeScreen">
+        <div class="deck-status">
+          <span id="positionLabel">1 / 6</span>
+          <strong id="scoreLabel">92% match</strong>
+        </div>
+
+        <article class="home-card" id="homeCard" aria-live="polite">
+          <div class="photo-wrap">
+            <img id="homePhoto" src="" alt="" />
+            <div class="photo-shade"></div>
+            <div class="source-row">
+              <span id="sourceBadge">FB Marketplace</span>
+              <span id="freshBadge">сегодня</span>
+            </div>
+            <button class="photo-btn prev" id="prevPhoto" type="button" aria-label="Предыдущее фото">‹</button>
+            <button class="photo-btn next" id="nextPhoto" type="button" aria-label="Следующее фото">›</button>
+            <div class="dots" id="photoDots"></div>
+            <div class="price" id="priceLabel">$920/mo</div>
+          </div>
+
+          <div class="card-copy">
+            <p class="area" id="areaLabel">An Thuong, Da Nang</p>
+            <h1 id="titleLabel">Светлый кондо у My Khe</h1>
+            <div class="specs" id="specs"></div>
+            <p class="description" id="description"></p>
+            <div class="tags" id="tags"></div>
+          </div>
+        </article>
+
+        <div class="actions">
+          <button class="decision no" id="skipBtn" type="button" aria-label="Пропустить" title="Пропустить">×</button>
+          <button class="decision more" id="detailsBtn" type="button" aria-label="Подробнее" title="Подробнее">i</button>
+          <button class="decision yes" id="saveBtn" type="button" aria-label="В избранное" title="В избранное">♡</button>
+        </div>
+      </section>
+
+      <section class="screen" id="favoritesScreen">
+        <div class="section-title">
+          <div>
+            <span>shortlist</span>
+            <h2>Избранное</h2>
+          </div>
+          <button class="text-btn" id="clearBtn" type="button">Очистить</button>
+        </div>
+        <div class="saved-list" id="savedList"></div>
+      </section>
+
+      <section class="screen" id="contactsScreen">
+        <div class="section-title">
+          <div>
+            <span>contacts</span>
+            <h2>Без личных сообщений</h2>
+          </div>
+        </div>
+        <div class="info-panel">
+          <strong>Логика мини-аппа</strong>
+          <p>Пользователь свайпает квартиры, сохраняет понравившиеся варианты, а в избранном видит контакт и кнопку перехода на исходное объявление Facebook Marketplace.</p>
+          <div class="flow">
+            <span>FB import</span>
+            <span>Swipe</span>
+            <span>Favorites</span>
+            <span>Redirect</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="Основная навигация">
+      <button class="tab active" data-screen="swipe" type="button"><span>⌂</span><b>Лента</b></button>
+      <button class="tab" data-screen="favorites" type="button"><span>♡</span><b>Избранное</b></button>
+      <button class="tab" data-screen="contacts" type="button"><span>↗</span><b>Контакты</b></button>
+    </nav>
+  </div>
+
+  <dialog class="bottom-sheet" id="detailsSheet">
+    <div class="sheet-head">
+      <div>
+        <span id="sheetArea">Da Nang</span>
+        <strong id="sheetTitle">Apartment</strong>
+      </div>
+      <button class="icon-btn" id="closeSheet" type="button" aria-label="Закрыть">×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-gallery" id="sheetGallery"></div>
+      <div class="detail-grid" id="detailGrid"></div>
+      <section>
+        <h3>О варианте</h3>
+        <p id="sheetDescription"></p>
+      </section>
+      <section>
+        <h3>Контакт</h3>
+        <div class="contact-card">
+          <div>
+            <strong id="contactName"></strong>
+            <span id="contactLine"></span>
+          </div>
+          <button class="text-btn" id="copyContact" type="button">Копировать</button>
+        </div>
+      </section>
+    </div>
+    <div class="sheet-actions">
+      <button class="secondary" id="sheetSave" type="button">♡ В избранное</button>
+      <button class="primary" id="openFb" type="button">Открыть FB MP</button>
+    </div>
+  </dialog>
+
+  <dialog class="bottom-sheet compact" id="citySheet">
+    <div class="sheet-head">
+      <div>
+        <span>region</span>
+        <strong>Быстрый выбор</strong>
+      </div>
+      <button class="icon-btn" id="closeCity" type="button" aria-label="Закрыть">×</button>
+    </div>
+    <div class="sheet-body city-options">
+      <button data-filter="all" type="button">Весь Вьетнам</button>
+      <button data-filter="danang" type="button">Da Nang</button>
+      <button data-filter="nhatrang" type="button">Nha Trang</button>
+      <button data-filter="villa" type="button">Только виллы</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

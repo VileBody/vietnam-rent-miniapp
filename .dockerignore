@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+docker-compose.yml
+tmp
+var
+node_modules
+*.log
+.DS_Store
