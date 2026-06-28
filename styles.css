@@ -108,11 +108,14 @@ h1, h2, h3, p { margin: 0; }
 .deck-stack { position: relative; isolation: isolate; }
 .home-card { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.72); border-radius: 30px; background: rgba(255,250,242,.96); box-shadow: var(--shadow); touch-action: pan-y; transform-origin: 50% 92%; transition: transform .24s cubic-bezier(.2,.8,.2,1), opacity .24s ease, filter .24s ease; }
 .active-card { z-index: 2; }
-.next-card { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .96; transform: translateY(13px) scale(.965); filter: saturate(.94) brightness(.98); box-shadow: 0 16px 34px rgba(35,43,36,.16); }
-.next-card.is-hidden { opacity: 0; transform: translateY(18px) scale(.95); }
-.deck-stack.promoting .next-card { transform: translateY(5px) scale(.99); opacity: 1; }
-.next-card .photo-btn { display: none; }
-.next-card .photo-wrap { height: clamp(278px, 49svh, 410px); }
+.next-card, .third-card { position: absolute; inset: 0; pointer-events: none; transform-origin: 50% 92%; }
+.next-card { z-index: 1; opacity: .96; transform: translateY(13px) scale(.965); filter: saturate(.94) brightness(.98); box-shadow: 0 16px 34px rgba(35,43,36,.16); }
+.third-card { z-index: 0; opacity: .72; transform: translateY(26px) scale(.932); filter: saturate(.88) brightness(.95); box-shadow: 0 12px 28px rgba(35,43,36,.12); }
+.next-card.is-hidden, .third-card.is-hidden { opacity: 0; transform: translateY(28px) scale(.93); }
+.deck-stack.promoting .next-card { transform: translateY(0) scale(1); opacity: 1; filter: saturate(1) brightness(1); }
+.deck-stack.promoting .third-card { transform: translateY(13px) scale(.965); opacity: .96; filter: saturate(.94) brightness(.98); }
+.next-card .photo-btn, .third-card .photo-btn { display: none; }
+.next-card .photo-wrap, .third-card .photo-wrap { height: clamp(278px, 49svh, 410px); }
 .home-card.dragging { transition: none; }
 .home-card.exit-left { transform: translateX(-122%) rotate(-10deg) scale(.96); opacity: 0; }
 .home-card.exit-right { transform: translateX(122%) rotate(10deg) scale(.96); opacity: 0; }

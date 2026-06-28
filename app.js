@@ -423,11 +423,18 @@ function cardPreviewMarkup(home) {
   `;
 }
 
-function renderNextCard(currentHome) {
+function renderStackCards(currentHome) {
+  const stackHomes = candidateHomes().filter((home) => home.id !== currentHome?.id);
   const nextCard = $('nextHomeCard');
-  const nextHome = candidateHomes().find((home) => home.id !== currentHome?.id) || null;
+  const thirdCard = $('thirdHomeCard');
+  const nextHome = stackHomes[0] || null;
+  const thirdHome = stackHomes[1] || null;
+
   nextCard.classList.toggle('is-hidden', !nextHome);
   nextCard.innerHTML = nextHome ? cardPreviewMarkup(nextHome) : '';
+
+  thirdCard.classList.toggle('is-hidden', !thirdHome);
+  thirdCard.innerHTML = thirdHome ? cardPreviewMarkup(thirdHome) : '';
 }
 
 function setEmptyCard() {
@@ -435,6 +442,8 @@ function setEmptyCard() {
   $('deckStack').classList.remove('promoting');
   $('nextHomeCard').classList.add('is-hidden');
   $('nextHomeCard').innerHTML = '';
+  $('thirdHomeCard').classList.add('is-hidden');
+  $('thirdHomeCard').innerHTML = '';
   card.classList.add('empty-card');
   $('positionLabel').textContent = 'нет вариантов';
   $('scoreLabel').textContent = 'измените фильтр';
@@ -468,7 +477,7 @@ function renderDeck() {
   }
 
   card.classList.remove('empty-card');
-  renderNextCard(home);
+  renderStackCards(home);
   state.photo = clamp(state.photo, 0, Math.max(home.photos.length - 1, 0));
   const seenCount = Number(state.seen[home.id] || 0);
   const unseen = items.filter((item) => !state.seen[item.id]).length;
@@ -518,7 +527,7 @@ function animateAndAdvance(direction, done) {
     state.animating = false;
     stack.classList.remove('promoting');
     render();
-  }, 220);
+  }, 260);
 }
 
 function saveCurrent() {
