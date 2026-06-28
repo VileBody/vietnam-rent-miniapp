@@ -395,8 +395,46 @@ function specMarkup(spec) {
   return `<div class="spec"><b>${escapeHTML(main)}</b><span>${escapeHTML(rest)}</span></div>`;
 }
 
+function cardPreviewMarkup(home) {
+  const seenCount = Number(state.seen[home.id] || 0);
+  return `
+    <div class="photo-wrap">
+      <img src="${escapeHTML(home.photos[0])}" alt="${escapeHTML(home.title)}" draggable="false" />
+      <div class="photo-shade"></div>
+      <div class="source-row">
+        <span>${escapeHTML(home.source)}</span>
+        <span>${escapeHTML(home.fresh)}</span>
+      </div>
+      <div class="dots">${home.photos.map((_, idx) => `<span class="${idx === 0 ? 'active' : ''}"></span>`).join('')}</div>
+      <div class="price">${money(home.price)}</div>
+    </div>
+
+    <div class="card-copy">
+      <div class="card-topline">
+        <p class="area">${escapeHTML(home.area)}</p>
+        <span class="seen-pill ${seenCount ? 'seen' : ''}">${seenCount ? `видели ${seenCount}×` : 'новое'}</span>
+      </div>
+      <h1>${escapeHTML(home.title)}</h1>
+      <div class="match-reasons">${reasonChips(home, 3).map((reason) => `<span>${escapeHTML(reason)}</span>`).join('')}</div>
+      <div class="specs">${home.specs.slice(0, 3).map(specMarkup).join('')}</div>
+      <p class="description">${escapeHTML(home.about)}</p>
+      <div class="tags">${home.tags.slice(0, 6).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('')}</div>
+    </div>
+  `;
+}
+
+function renderNextCard(currentHome) {
+  const nextCard = $('nextHomeCard');
+  const nextHome = candidateHomes().find((home) => home.id !== currentHome?.id) || null;
+  nextCard.classList.toggle('is-hidden', !nextHome);
+  nextCard.innerHTML = nextHome ? cardPreviewMarkup(nextHome) : '';
+}
+
 function setEmptyCard() {
   const card = $('homeCard');
+  $('deckStack').classList.remove('promoting');
+  $('nextHomeCard').classList.add('is-hidden');
+  $('nextHomeCard').innerHTML = '';
   card.classList.add('empty-card');
   $('positionLabel').textContent = 'нет вариантов';
   $('scoreLabel').textContent = 'измените фильтр';
@@ -420,6 +458,7 @@ function renderDeck() {
   const items = candidateHomes();
   const home = current();
   const card = $('homeCard');
+  $('deckStack').classList.remove('promoting');
   card.classList.remove('exit-left', 'exit-right', 'dragging', 'like-preview', 'nope-preview');
   card.style.transform = '';
 
@@ -429,6 +468,7 @@ function renderDeck() {
   }
 
   card.classList.remove('empty-card');
+  renderNextCard(home);
   state.photo = clamp(state.photo, 0, Math.max(home.photos.length - 1, 0));
   const seenCount = Number(state.seen[home.id] || 0);
   const unseen = items.filter((item) => !state.seen[item.id]).length;
@@ -468,12 +508,15 @@ function markSeen(home) {
 
 function animateAndAdvance(direction, done) {
   const card = $('homeCard');
+  const stack = $('deckStack');
   state.animating = true;
   card.classList.remove('like-preview', 'nope-preview');
+  stack.classList.add('promoting');
   card.classList.add(direction === 'right' ? 'exit-right' : 'exit-left');
   window.setTimeout(() => {
     done?.();
     state.animating = false;
+    stack.classList.remove('promoting');
     render();
   }, 220);
 }

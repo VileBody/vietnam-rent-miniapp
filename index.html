@@ -53,35 +53,39 @@
           <strong id="scoreLabel">—</strong>
         </div>
 
-        <article class="home-card" id="homeCard" aria-live="polite">
-          <div class="swipe-stamp pass">не моё</div>
-          <div class="swipe-stamp like">в шортлист</div>
+        <div class="deck-stack" id="deckStack">
+          <article class="home-card next-card" id="nextHomeCard" aria-hidden="true"></article>
 
-          <div class="photo-wrap">
-            <img id="homePhoto" src="" alt="" draggable="false" />
-            <div class="photo-shade"></div>
-            <div class="source-row">
-              <span id="sourceBadge">FB Marketplace</span>
-              <span id="freshBadge">сегодня</span>
-            </div>
-            <button class="photo-btn prev" id="prevPhoto" type="button" aria-label="Предыдущее фото">‹</button>
-            <button class="photo-btn next" id="nextPhoto" type="button" aria-label="Следующее фото">›</button>
-            <div class="dots" id="photoDots"></div>
-            <div class="price" id="priceLabel">$920/mo</div>
-          </div>
+          <article class="home-card active-card" id="homeCard" aria-live="polite">
+            <div class="swipe-stamp pass">не моё</div>
+            <div class="swipe-stamp like">в шортлист</div>
 
-          <div class="card-copy">
-            <div class="card-topline">
-              <p class="area" id="areaLabel">An Thuong, Da Nang</p>
-              <span class="seen-pill" id="seenPill">новое</span>
+            <div class="photo-wrap">
+              <img id="homePhoto" src="" alt="" draggable="false" />
+              <div class="photo-shade"></div>
+              <div class="source-row">
+                <span id="sourceBadge">FB Marketplace</span>
+                <span id="freshBadge">сегодня</span>
+              </div>
+              <button class="photo-btn prev" id="prevPhoto" type="button" aria-label="Предыдущее фото">‹</button>
+              <button class="photo-btn next" id="nextPhoto" type="button" aria-label="Следующее фото">›</button>
+              <div class="dots" id="photoDots"></div>
+              <div class="price" id="priceLabel">$920/mo</div>
             </div>
-            <h1 id="titleLabel">Светлый кондо у My Khe</h1>
-            <div class="match-reasons" id="matchReasons"></div>
-            <div class="specs" id="specs"></div>
-            <p class="description" id="description"></p>
-            <div class="tags" id="tags"></div>
-          </div>
-        </article>
+
+            <div class="card-copy">
+              <div class="card-topline">
+                <p class="area" id="areaLabel">An Thuong, Da Nang</p>
+                <span class="seen-pill" id="seenPill">новое</span>
+              </div>
+              <h1 id="titleLabel">Светлый кондо у My Khe</h1>
+              <div class="match-reasons" id="matchReasons"></div>
+              <div class="specs" id="specs"></div>
+              <p class="description" id="description"></p>
+              <div class="tags" id="tags"></div>
+            </div>
+          </article>
+        </div>
 
         <div class="actions" aria-label="Действия с вариантом">
           <button class="action-pill pass" id="skipBtn" type="button"><span>×</span><b>Не моё</b></button>
@@ -105,9 +109,9 @@
       <section class="screen plan-screen" id="planScreen">
         <div class="section-title">
           <div>
-            <span>travel radar</span>
-            <h2>Радар поездки</h2>
-            <p>Это не список и не карта: новые варианты выше, просмотренные ниже, а шортлист готов к контакту.</p>
+            <span>saved searches</span>
+            <h2>Мои поиски</h2>
+            <p>Настройки поездки, свежие варианты и прогресс по просмотрам в одном месте.</p>
           </div>
           <button class="text-btn" id="openOnboardingFromPlan" type="button">Настроить</button>
         </div>
@@ -129,7 +133,7 @@
     <nav class="tabbar" aria-label="Основная навигация">
       <button class="tab active" data-screen="discover" type="button"><span>◇</span><b>Подбор</b></button>
       <button class="tab" data-screen="favorites" type="button"><span>♥</span><b>Шортлист</b></button>
-      <button class="tab" data-screen="plan" type="button"><span>◌</span><b>Радар</b></button>
+      <button class="tab" data-screen="plan" type="button"><span>◌</span><b>Мои поиски</b></button>
     </nav>
   </div>
 
