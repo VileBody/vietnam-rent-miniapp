@@ -144,6 +144,7 @@ const state = {
   activeDetailId: null,
   currentId: null,
   animating: false,
+  deckQueue: [],
   history: [],
   favorites: new Set(readJSON(STORAGE.favorites, [])),
   seen: normalizeSeen(readJSON(STORAGE.seen, {})),
@@ -321,13 +322,32 @@ function candidateHomes() {
     .sort((a, b) => priority(b) - priority(a) || travelFit(b) - travelFit(a) || a.price - b.price);
 }
 
+function ensureDeckQueue() {
+  const candidates = candidateHomes();
+  const validIds = new Set(candidates.map((home) => home.id));
+  const existing = state.deckQueue.filter((id) => validIds.has(id));
+  const missing = candidates.map((home) => home.id).filter((id) => !existing.includes(id));
+  state.deckQueue = [...existing, ...missing];
+  state.currentId = state.deckQueue[0] || null;
+  return state.deckQueue
+    .map((id) => homes.find((home) => home.id === id))
+    .filter(Boolean);
+}
+
+function resetDeckQueue() {
+  state.deckQueue = [];
+  state.currentId = null;
+  state.photo = 0;
+}
+
+function advanceDeckQueue(swipedId) {
+  state.deckQueue = state.deckQueue.filter((id) => id !== swipedId);
+  state.currentId = state.deckQueue[0] || null;
+  state.photo = 0;
+}
+
 function current() {
-  const items = candidateHomes();
-  if (!items.length) return null;
-  const stillVisible = items.find((home) => home.id === state.currentId);
-  if (stillVisible) return stillVisible;
-  state.currentId = items[0].id;
-  return items[0];
+  return ensureDeckQueue()[0] || null;
 }
 
 function money(value) {
@@ -397,11 +417,7 @@ function specMarkup(spec) {
 }
 
 function orderedDeckHomes() {
-  const items = candidateHomes();
-  if (!items.length) return [];
-  const active = current();
-  if (!active) return items;
-  return [active, ...items.filter((home) => home.id !== active.id)];
+  return ensureDeckQueue();
 }
 
 function cardMarkup(home, depth = 0) {
@@ -479,12 +495,6 @@ function renderDeck() {
   $('saveBtn').classList.toggle('saved', saved);
 }
 
-function nextCandidateAfter(homeId) {
-  const next = candidateHomes().find((home) => home.id !== homeId) || candidateHomes()[0] || null;
-  state.currentId = next?.id || null;
-  state.photo = 0;
-}
-
 function markSeen(home) {
   if (!home) return;
   state.seen[home.id] = Number(state.seen[home.id] || 0) + 1;
@@ -519,18 +529,24 @@ function flyHeart(card) {
   }, 560);
 }
 
-function animateAndAdvance(direction, done) {
+function animateAndAdvance(direction, { onStart, onDone } = {}) {
+  if (state.animating) return;
   const card = $('deck').querySelector('.home-card[data-depth="0"]');
-  if (!card) return;
+  if (!card) {
+    onDone?.();
+    render();
+    return;
+  }
   state.animating = true;
   card.classList.remove('like-preview', 'nope-preview');
   card.style.transition = 'transform .35s cubic-bezier(.2,.7,.3,1), opacity .35s ease';
+  onStart?.(card);
   const x = direction === 'right' ? 600 : -600;
   const rotation = direction === 'right' ? 30 : -30;
   card.style.transform = `translate(${x}px, 120px) rotate(${rotation}deg)`;
   card.style.opacity = '0';
   window.setTimeout(() => {
-    done?.();
+    onDone?.();
     state.animating = false;
     render();
   }, 330);
@@ -541,16 +557,20 @@ function saveCurrent() {
   const home = current();
   if (!home) return;
   state.favorites.add(home.id);
-  markSeen(home);
-  state.history.push(home.id);
   saveState();
   haptic('medium');
-  const card = $('deck').querySelector('.home-card[data-depth="0"]');
-  if (card) {
-    card.querySelector('.swipe-stamp.like').style.opacity = '1';
-    flyHeart(card);
-  }
-  animateAndAdvance('right', () => nextCandidateAfter(home.id));
+  animateAndAdvance('right', {
+    onStart: (card) => {
+      card.querySelector('.swipe-stamp.like').style.opacity = '1';
+      flyHeart(card);
+    },
+    onDone: () => {
+      markSeen(home);
+      state.history.push(home.id);
+      advanceDeckQueue(home.id);
+      saveState();
+    },
+  });
   toast('Сохранено — контакт открыт в шортлисте');
 }
 
@@ -558,13 +578,18 @@ function skipCurrent() {
   if (state.animating) return;
   const home = current();
   if (!home) return;
-  markSeen(home);
-  state.history.push(home.id);
-  saveState();
   haptic('light');
-  const card = $('deck').querySelector('.home-card[data-depth="0"]');
-  if (card) card.querySelector('.swipe-stamp.pass').style.opacity = '1';
-  animateAndAdvance('left', () => nextCandidateAfter(home.id));
+  animateAndAdvance('left', {
+    onStart: (card) => {
+      card.querySelector('.swipe-stamp.pass').style.opacity = '1';
+    },
+    onDone: () => {
+      markSeen(home);
+      state.history.push(home.id);
+      advanceDeckQueue(home.id);
+      saveState();
+    },
+  });
 }
 
 function changePhoto(delta) {
@@ -752,8 +777,7 @@ function openOnboarding() {
 function resetPrefs() {
   state.prefs = { ...defaultPrefs, vibes: [...defaultPrefs.vibes] };
   state.filter = 'best';
-  state.currentId = null;
-  state.photo = 0;
+  resetDeckQueue();
   savePrefs();
   updateOnboardingUI();
   $$('[data-filter]').forEach((chip) => chip.classList.toggle('active', chip.dataset.filter === state.filter));
@@ -761,8 +785,7 @@ function resetPrefs() {
 
 function applyPrefsFromOnboarding() {
   state.prefs.budget = Number($('budgetRange').value || defaultPrefs.budget);
-  state.currentId = null;
-  state.photo = 0;
+  resetDeckQueue();
   setFlag(STORAGE.onboarded);
   savePrefs();
   closeDialog($('onboardingSheet'));
@@ -773,16 +796,14 @@ function applyPrefsFromOnboarding() {
 
 function setDestination(destination) {
   state.prefs.destination = destination;
-  state.currentId = null;
-  state.photo = 0;
+  resetDeckQueue();
   savePrefs();
   render();
 }
 
 function setFilter(filter) {
   state.filter = filter;
-  state.currentId = null;
-  state.photo = 0;
+  resetDeckQueue();
   $$('.filter-chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.filter === filter));
   render();
 }
@@ -835,13 +856,11 @@ function attachDrag(card) {
   let dx = 0;
   let dy = 0;
   let dragging = false;
-  let horizontal = false;
   let pointerId = null;
 
   card.addEventListener('pointerdown', (event) => {
     if (state.animating || event.target.closest('button') || !current()) return;
     dragging = true;
-    horizontal = false;
     pointerId = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -856,13 +875,6 @@ function attachDrag(card) {
     if (!dragging) return;
     dx = event.clientX - startX;
     dy = event.clientY - startY;
-
-    if (!horizontal) {
-      if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) return;
-      if (Math.abs(dx) < 8) return;
-      horizontal = true;
-    }
-
     event.preventDefault();
     card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.06}deg)`;
     const like = card.querySelector('.swipe-stamp.like');
@@ -874,7 +886,6 @@ function attachDrag(card) {
   function finish() {
     if (!dragging) return;
     dragging = false;
-    horizontal = false;
     card.classList.remove('dragging', 'like-preview', 'nope-preview');
     if (pointerId !== null && card.hasPointerCapture?.(pointerId)) card.releasePointerCapture(pointerId);
     if (dx > 110) return saveCurrent();
@@ -895,6 +906,7 @@ function rewindCurrent() {
   if (!lastId) return;
   if (state.seen[lastId]) state.seen[lastId] = Math.max(0, Number(state.seen[lastId]) - 1);
   if (!state.seen[lastId]) delete state.seen[lastId];
+  state.deckQueue = [lastId, ...state.deckQueue.filter((id) => id !== lastId)];
   state.currentId = lastId;
   state.photo = 0;
   saveState();
@@ -918,7 +930,7 @@ function bind() {
   $('rewindBtn').addEventListener('click', rewindCurrent);
   $('emptyResetBtn').addEventListener('click', () => {
     state.seen = {};
-    state.currentId = null;
+    resetDeckQueue();
     state.history = [];
     saveState();
     render();
@@ -939,7 +951,7 @@ function bind() {
   });
   $('resetSeenBtn').addEventListener('click', () => {
     state.seen = {};
-    state.currentId = null;
+    resetDeckQueue();
     saveState();
     render();
     toast('Просмотренные снова наверху');
@@ -1023,7 +1035,7 @@ setTimeout(initTelegram, 400);
   updatePreferenceUI();
   await loadHomes();
   updatePreferenceUI();
-  state.currentId = candidateHomes()[0]?.id || null;
+  resetDeckQueue();
   render();
   if (!readFlag(STORAGE.onboarded)) setTimeout(openOnboarding, 160);
 })();
