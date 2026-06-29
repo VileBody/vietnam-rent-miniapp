@@ -133,7 +133,7 @@ const STORAGE = {
 const destinations = { all: 'Вьетнам', danang: 'Da Nang', nhatrang: 'Nha Trang', hoian: 'Hoi An', hcmc: 'HCMC', phuquoc: 'Phu Quoc' };
 const travelerLabels = { solo: 'соло', couple: 'пара', family: 'семья', friends: 'друзья' };
 const vibeLabels = { beach: 'море', workation: 'workation', calm: 'тихо', villa: 'вилла', pool: 'бассейн', pet: 'pet ok' };
-const defaultPrefs = { destination: 'danang', traveler: 'couple', vibes: ['beach', 'workation'], budget: 1200, bedrooms: '1' };
+const defaultPrefs = { destination: 'all', traveler: 'couple', vibes: ['beach', 'workation'], budget: 1200, bedrooms: '1' };
 
 let homes = fallbackHomes.map(normalizeHome);
 
@@ -325,9 +325,14 @@ function candidateHomes() {
 function ensureDeckQueue() {
   const candidates = candidateHomes();
   const validIds = new Set(candidates.map((home) => home.id));
-  const existing = state.deckQueue.filter((id) => validIds.has(id));
-  const missing = candidates.map((home) => home.id).filter((id) => !existing.includes(id));
-  state.deckQueue = [...existing, ...missing];
+  state.deckQueue = state.deckQueue.filter((id) => validIds.has(id));
+
+  if (!state.deckQueue.length) {
+    state.deckQueue = candidates
+      .filter((home) => !state.seen[home.id])
+      .map((home) => home.id);
+  }
+
   state.currentId = state.deckQueue[0] || null;
   return state.deckQueue
     .map((id) => homes.find((home) => home.id === id))

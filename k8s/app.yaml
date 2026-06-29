@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/name: vietnest
         app.kubernetes.io/part-of: vietnam-rent-miniapp
       annotations:
-        vietnest.teamgenius.ru/rollout-at: "2026-06-29T19:28:50Z"
+        vietnest.teamgenius.ru/rollout-at: "2026-06-29T19:43:09Z"
     spec:
       imagePullSecrets:
         - name: ghcr-pull
