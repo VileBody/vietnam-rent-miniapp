@@ -144,6 +144,7 @@ const state = {
   activeDetailId: null,
   currentId: null,
   animating: false,
+  history: [],
   favorites: new Set(readJSON(STORAGE.favorites, [])),
   seen: normalizeSeen(readJSON(STORAGE.seen, {})),
   prefs: normalizePrefs(readJSON(STORAGE.prefs, defaultPrefs)),
@@ -395,89 +396,64 @@ function specMarkup(spec) {
   return `<div class="spec"><b>${escapeHTML(main)}</b><span>${escapeHTML(rest)}</span></div>`;
 }
 
-function cardPreviewMarkup(home) {
+function orderedDeckHomes() {
+  const items = candidateHomes();
+  if (!items.length) return [];
+  const active = current();
+  if (!active) return items;
+  return [active, ...items.filter((home) => home.id !== active.id)];
+}
+
+function cardMarkup(home, depth = 0) {
   const seenCount = Number(state.seen[home.id] || 0);
+  const photoIndex = depth === 0 ? state.photo : 0;
+  const activePhoto = home.photos[clamp(photoIndex, 0, Math.max(home.photos.length - 1, 0))];
+  const price = money(home.price).replace('/mo', '');
   return `
     <div class="photo-wrap">
-      <img src="${escapeHTML(home.photos[0])}" alt="${escapeHTML(home.title)}" draggable="false" />
+      <img src="${escapeHTML(activePhoto)}" alt="${escapeHTML(home.title)}" draggable="false" />
       <div class="photo-shade"></div>
       <div class="source-row">
-        <span>${escapeHTML(home.source)}</span>
+        <span>${seenCount ? `видели ${seenCount}×` : escapeHTML(home.source)}</span>
         <span>${escapeHTML(home.fresh)}</span>
       </div>
-      <div class="dots">${home.photos.map((_, idx) => `<span class="${idx === 0 ? 'active' : ''}"></span>`).join('')}</div>
-      <div class="price">${money(home.price)}</div>
+      <div class="dots">${home.photos.map((_, idx) => `<span class="${idx === photoIndex ? 'active' : ''}"></span>`).join('')}</div>
     </div>
+    <div class="swipe-stamp like">В шортлист</div>
+    <div class="swipe-stamp pass">Мимо</div>
 
     <div class="card-copy">
       <div class="card-topline">
         <p class="area">${escapeHTML(home.area)}</p>
-        <span class="seen-pill ${seenCount ? 'seen' : ''}">${seenCount ? `видели ${seenCount}×` : 'новое'}</span>
+        <span class="seen-pill ${seenCount ? 'seen' : ''}">${escapeHTML(home.fresh || 'новое')}</span>
       </div>
+      <div class="price">${escapeHTML(price)}<small> /мес</small></div>
       <h1>${escapeHTML(home.title)}</h1>
-      <div class="match-reasons">${reasonChips(home, 3).map((reason) => `<span>${escapeHTML(reason)}</span>`).join('')}</div>
       <div class="specs">${home.specs.slice(0, 3).map(specMarkup).join('')}</div>
-      <p class="description">${escapeHTML(home.about)}</p>
       <div class="tags">${home.tags.slice(0, 6).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('')}</div>
     </div>
   `;
 }
 
-function renderStackCards(currentHome) {
-  const stackHomes = candidateHomes().filter((home) => home.id !== currentHome?.id);
-  const nextCard = $('nextHomeCard');
-  const thirdCard = $('thirdHomeCard');
-  const nextHome = stackHomes[0] || null;
-  const thirdHome = stackHomes[1] || null;
-
-  nextCard.classList.toggle('is-hidden', !nextHome);
-  nextCard.innerHTML = nextHome ? cardPreviewMarkup(nextHome) : '';
-
-  thirdCard.classList.toggle('is-hidden', !thirdHome);
-  thirdCard.innerHTML = thirdHome ? cardPreviewMarkup(thirdHome) : '';
-}
-
 function setEmptyCard() {
-  const card = $('homeCard');
-  $('deckStack').classList.remove('promoting');
-  $('nextHomeCard').classList.add('is-hidden');
-  $('nextHomeCard').innerHTML = '';
-  $('thirdHomeCard').classList.add('is-hidden');
-  $('thirdHomeCard').innerHTML = '';
-  card.classList.add('empty-card');
   $('positionLabel').textContent = 'нет вариантов';
   $('scoreLabel').textContent = 'измените фильтр';
-  $('homePhoto').removeAttribute('src');
-  $('homePhoto').alt = '';
-  $('sourceBadge').textContent = 'VietNest';
-  $('freshBadge').textContent = '';
-  $('priceLabel').textContent = '';
-  $('areaLabel').textContent = destinations[state.prefs.destination] || 'Вьетнам';
-  $('seenPill').textContent = 'пауза';
-  $('seenPill').classList.remove('seen');
-  $('titleLabel').textContent = 'Под этот режим ничего не нашлось';
-  $('matchReasons').innerHTML = '<span>попробуйте другой вайб</span><span>или весь Вьетнам</span>';
-  $('specs').innerHTML = '';
-  $('description').textContent = 'Свайп-флоу оставляем, но выборка должна быть шире: откройте настройки или переключите быстрый режим.';
-  $('tags').innerHTML = '';
-  $('photoDots').innerHTML = '';
+  $('deckEmpty').classList.add('show');
 }
 
 function renderDeck() {
   const items = candidateHomes();
-  const home = current();
-  const card = $('homeCard');
-  $('deckStack').classList.remove('promoting');
-  card.classList.remove('exit-left', 'exit-right', 'dragging', 'like-preview', 'nope-preview');
-  card.style.transform = '';
+  const deck = $('deck');
+  deck.querySelectorAll('.home-card').forEach((card) => card.remove());
+  $('deckEmpty').classList.remove('show');
 
-  if (!home) {
+  const homesToRender = orderedDeckHomes();
+  const home = homesToRender[0] || null;
+  if (!home || !homesToRender.length) {
     setEmptyCard();
     return;
   }
 
-  card.classList.remove('empty-card');
-  renderStackCards(home);
   state.photo = clamp(state.photo, 0, Math.max(home.photos.length - 1, 0));
   const seenCount = Number(state.seen[home.id] || 0);
   const unseen = items.filter((item) => !state.seen[item.id]).length;
@@ -485,23 +461,22 @@ function renderDeck() {
 
   $('positionLabel').textContent = `новых ${unseen} · свайпов ${totalSwipes}`;
   $('scoreLabel').textContent = `${travelFit(home)}% fit`;
-  $('sourceBadge').textContent = home.source;
-  $('freshBadge').textContent = home.fresh;
-  $('homePhoto').src = home.photos[state.photo];
-  $('homePhoto').alt = home.title;
-  $('priceLabel').textContent = money(home.price);
-  $('areaLabel').textContent = home.area;
-  $('seenPill').textContent = seenCount ? `видели ${seenCount}×` : 'новое';
-  $('seenPill').classList.toggle('seen', seenCount > 0);
-  $('titleLabel').textContent = home.title;
-  $('matchReasons').innerHTML = reasonChips(home, 3).map((reason) => `<span>${escapeHTML(reason)}</span>`).join('');
-  $('specs').innerHTML = home.specs.slice(0, 3).map(specMarkup).join('');
-  $('description').textContent = home.about;
-  $('tags').innerHTML = home.tags.slice(0, 6).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('');
-  $('photoDots').innerHTML = home.photos.map((_, idx) => `<span class="${idx === state.photo ? 'active' : ''}"></span>`).join('');
+
+  homesToRender.slice(0, 3).reverse().forEach((item, reverseIndex, stack) => {
+    const depth = stack.length - reverseIndex - 1;
+    const card = document.createElement('article');
+    card.className = 'home-card';
+    card.dataset.id = item.id;
+    card.dataset.depth = String(depth);
+    card.style.zIndex = String(20 - depth);
+    card.style.transform = `translateY(${depth * 10}px) scale(${1 - depth * 0.04})`;
+    card.innerHTML = cardMarkup(item, depth);
+    deck.appendChild(card);
+    if (depth === 0) attachDrag(card);
+  });
 
   const saved = state.favorites.has(home.id);
-  $('saveBtn').innerHTML = saved ? '<span>♥</span><b>Сохранено</b>' : '<span>♥</span><b>В шортлист</b>';
+  $('saveBtn').classList.toggle('saved', saved);
 }
 
 function nextCandidateAfter(homeId) {
@@ -515,19 +490,50 @@ function markSeen(home) {
   state.seen[home.id] = Number(state.seen[home.id] || 0) + 1;
 }
 
+function flyHeart(card) {
+  const layer = $('flyLayer');
+  const target = $('favShortcut');
+  if (!layer || !target) return;
+  const layerRect = layer.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const fly = document.createElement('div');
+  fly.className = 'fly';
+  fly.textContent = '♥';
+  const x0 = cardRect.left - layerRect.left + cardRect.width / 2 - 17;
+  const y0 = cardRect.top - layerRect.top + cardRect.height / 2 - 17;
+  const x1 = targetRect.left - layerRect.left + targetRect.width / 2 - 17;
+  const y1 = targetRect.top - layerRect.top + targetRect.height / 2 - 17;
+  fly.style.left = `${x0}px`;
+  fly.style.top = `${y0}px`;
+  layer.appendChild(fly);
+  requestAnimationFrame(() => {
+    fly.style.transform = `translate(${x1 - x0}px, ${y1 - y0}px) scale(.42)`;
+    fly.style.opacity = '.2';
+  });
+  window.setTimeout(() => {
+    fly.remove();
+    $('favShortcut').classList.remove('bump');
+    void $('favShortcut').offsetWidth;
+    $('favShortcut').classList.add('bump');
+  }, 560);
+}
+
 function animateAndAdvance(direction, done) {
-  const card = $('homeCard');
-  const stack = $('deckStack');
+  const card = $('deck').querySelector('.home-card[data-depth="0"]');
+  if (!card) return;
   state.animating = true;
   card.classList.remove('like-preview', 'nope-preview');
-  stack.classList.add('promoting');
-  card.classList.add(direction === 'right' ? 'exit-right' : 'exit-left');
+  card.style.transition = 'transform .35s cubic-bezier(.2,.7,.3,1), opacity .35s ease';
+  const x = direction === 'right' ? 600 : -600;
+  const rotation = direction === 'right' ? 30 : -30;
+  card.style.transform = `translate(${x}px, 120px) rotate(${rotation}deg)`;
+  card.style.opacity = '0';
   window.setTimeout(() => {
     done?.();
     state.animating = false;
-    stack.classList.remove('promoting');
     render();
-  }, 260);
+  }, 330);
 }
 
 function saveCurrent() {
@@ -536,8 +542,14 @@ function saveCurrent() {
   if (!home) return;
   state.favorites.add(home.id);
   markSeen(home);
+  state.history.push(home.id);
   saveState();
   haptic('medium');
+  const card = $('deck').querySelector('.home-card[data-depth="0"]');
+  if (card) {
+    card.querySelector('.swipe-stamp.like').style.opacity = '1';
+    flyHeart(card);
+  }
   animateAndAdvance('right', () => nextCandidateAfter(home.id));
   toast('Сохранено — контакт открыт в шортлисте');
 }
@@ -547,8 +559,11 @@ function skipCurrent() {
   const home = current();
   if (!home) return;
   markSeen(home);
+  state.history.push(home.id);
   saveState();
   haptic('light');
+  const card = $('deck').querySelector('.home-card[data-depth="0"]');
+  if (card) card.querySelector('.swipe-stamp.pass').style.opacity = '1';
   animateAndAdvance('left', () => nextCandidateAfter(home.id));
 }
 
@@ -814,11 +829,11 @@ function bindOnboarding() {
   });
 }
 
-function bindDrag() {
-  const card = $('homeCard');
+function attachDrag(card) {
   let startX = 0;
   let startY = 0;
   let dx = 0;
+  let dy = 0;
   let dragging = false;
   let horizontal = false;
   let pointerId = null;
@@ -831,14 +846,16 @@ function bindDrag() {
     startX = event.clientX;
     startY = event.clientY;
     dx = 0;
+    dy = 0;
     card.classList.add('dragging');
+    card.style.transition = 'none';
     card.setPointerCapture?.(pointerId);
   });
 
   card.addEventListener('pointermove', (event) => {
     if (!dragging) return;
     dx = event.clientX - startX;
-    const dy = event.clientY - startY;
+    dy = event.clientY - startY;
 
     if (!horizontal) {
       if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) return;
@@ -847,10 +864,11 @@ function bindDrag() {
     }
 
     event.preventDefault();
-    const limited = clamp(dx, -156, 156);
-    card.style.transform = `translateX(${limited}px) translateY(${-Math.min(Math.abs(limited) / 24, 8)}px) rotate(${clamp(limited / 18, -8, 8)}deg)`;
-    card.classList.toggle('like-preview', limited > 72);
-    card.classList.toggle('nope-preview', limited < -72);
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.06}deg)`;
+    const like = card.querySelector('.swipe-stamp.like');
+    const nope = card.querySelector('.swipe-stamp.pass');
+    like.style.opacity = dx > 0 ? String(Math.min(dx / 90, 1)) : '0';
+    nope.style.opacity = dx < 0 ? String(Math.min(-dx / 90, 1)) : '0';
   });
 
   function finish() {
@@ -859,13 +877,33 @@ function bindDrag() {
     horizontal = false;
     card.classList.remove('dragging', 'like-preview', 'nope-preview');
     if (pointerId !== null && card.hasPointerCapture?.(pointerId)) card.releasePointerCapture(pointerId);
-    if (dx > 96) return saveCurrent();
-    if (dx < -96) return skipCurrent();
-    card.style.transform = '';
+    if (dx > 110) return saveCurrent();
+    if (dx < -110) return skipCurrent();
+    card.style.transition = 'transform .35s cubic-bezier(.2,.7,.3,1), opacity .35s ease';
+    card.style.transform = 'translateY(0) scale(1)';
+    card.querySelector('.swipe-stamp.like').style.opacity = '0';
+    card.querySelector('.swipe-stamp.pass').style.opacity = '0';
   }
 
   card.addEventListener('pointerup', finish);
   card.addEventListener('pointercancel', finish);
+}
+
+function rewindCurrent() {
+  if (state.animating || !state.history.length) return;
+  const lastId = state.history.pop();
+  if (!lastId) return;
+  if (state.seen[lastId]) state.seen[lastId] = Math.max(0, Number(state.seen[lastId]) - 1);
+  if (!state.seen[lastId]) delete state.seen[lastId];
+  state.currentId = lastId;
+  state.photo = 0;
+  saveState();
+  render();
+  toast('Вернул вариант');
+}
+
+function bindDrag() {
+  // Cards are rebuilt dynamically; drag handlers are attached in renderDeck().
 }
 
 function bindDialogBackdrop(dialog) {
@@ -877,9 +915,15 @@ function bindDialogBackdrop(dialog) {
 function bind() {
   $('skipBtn').addEventListener('click', skipCurrent);
   $('saveBtn').addEventListener('click', saveCurrent);
+  $('rewindBtn').addEventListener('click', rewindCurrent);
+  $('emptyResetBtn').addEventListener('click', () => {
+    state.seen = {};
+    state.currentId = null;
+    state.history = [];
+    saveState();
+    render();
+  });
   $('detailsBtn').addEventListener('click', () => openDetails());
-  $('prevPhoto').addEventListener('click', () => changePhoto(-1));
-  $('nextPhoto').addEventListener('click', () => changePhoto(1));
   $('favShortcut').addEventListener('click', () => setScreen('favorites'));
   $('editPrefsBtn').addEventListener('click', openOnboarding);
   $('openOnboardingFromPlan').addEventListener('click', openOnboarding);

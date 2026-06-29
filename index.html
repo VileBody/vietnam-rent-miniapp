@@ -3,39 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f7f1e7" />
-  <title>VietNest Trips</title>
+  <meta name="theme-color" content="#fff8f3" />
+  <title>Nhà · VietNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://images.unsplash.com" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="phone-app">
     <header class="topbar">
-      <button class="location-pill" id="cityBtn" type="button" aria-label="Выбрать регион">
-        <span id="cityLabel">Da Nang</span>
-        <b>регион</b>
-      </button>
-
-      <div class="brand" aria-label="VietNest Trips">
-        <strong>VietNest</strong>
-        <span id="brandSubtitle">туристическая аренда</span>
+      <div class="brand" aria-label="Nhà">
+        <div class="brand-mark">N</div>
+        <div>
+          <strong>Nhà</strong>
+          <span id="brandSubtitle">аренда во Вьетнаме</span>
+        </div>
       </div>
 
-      <button class="icon-btn fav-indicator" id="favShortcut" type="button" aria-label="Открыть шортлист" title="Шортлист">
-        <span>♥</span>
-        <b id="favCount">0</b>
-      </button>
+      <div class="top-actions">
+        <button class="shortpill" id="favShortcut" type="button" aria-label="Открыть шортлист" title="Шортлист">
+          <span>♥</span>
+          <b id="favCount">0</b>
+        </button>
+        <button class="icon-btn" id="cityBtn" type="button" aria-label="Выбрать регион" title="Регион">
+          <span id="cityLabel">Da Nang</span>
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
       <section class="screen active" id="discoverScreen">
-        <div class="trip-panel">
-          <div>
-            <span>travel home base</span>
-            <strong id="tripSummary">Da Nang · море · до $1,200</strong>
-            <p id="tripSubline">пара · 1+ спальня · workation</p>
-          </div>
-          <button class="small-glass-btn" id="editPrefsBtn" type="button">Настроить</button>
+        <div class="search-head">
+          <button class="search-pill" id="editPrefsBtn" type="button">
+            <span id="tripSummary">Da Nang · море · до $1,200</span>
+            <b id="tripSubline">пара · 1+ спальня · workation</b>
+          </button>
         </div>
 
         <div class="quick-rail" aria-label="Быстрые режимы">
@@ -53,45 +57,31 @@
           <strong id="scoreLabel">—</strong>
         </div>
 
-        <div class="deck-stack" id="deckStack">
-          <article class="home-card third-card" id="thirdHomeCard" aria-hidden="true"></article>
-          <article class="home-card next-card" id="nextHomeCard" aria-hidden="true"></article>
-
-          <article class="home-card active-card" id="homeCard" aria-live="polite">
-            <div class="swipe-stamp pass">не моё</div>
-            <div class="swipe-stamp like">в шортлист</div>
-
-            <div class="photo-wrap">
-              <img id="homePhoto" src="" alt="" draggable="false" />
-              <div class="photo-shade"></div>
-              <div class="source-row">
-                <span id="sourceBadge">FB Marketplace</span>
-                <span id="freshBadge">сегодня</span>
-              </div>
-              <button class="photo-btn prev" id="prevPhoto" type="button" aria-label="Предыдущее фото">‹</button>
-              <button class="photo-btn next" id="nextPhoto" type="button" aria-label="Следующее фото">›</button>
-              <div class="dots" id="photoDots"></div>
-              <div class="price" id="priceLabel">$920/mo</div>
+        <div class="deck-area">
+          <div class="deck" id="deck" aria-live="polite">
+            <div class="deck-empty" id="deckEmpty">
+              <div class="empty-ico">⌂</div>
+              <h3>Вы посмотрели всё</h3>
+              <p>Понравившиеся варианты уже в шортлисте. Можно вернуть просмотренные наверх или поменять поиск.</p>
+              <button id="emptyResetBtn" type="button">Смотреть заново</button>
             </div>
-
-            <div class="card-copy">
-              <div class="card-topline">
-                <p class="area" id="areaLabel">An Thuong, Da Nang</p>
-                <span class="seen-pill" id="seenPill">новое</span>
-              </div>
-              <h1 id="titleLabel">Светлый кондо у My Khe</h1>
-              <div class="match-reasons" id="matchReasons"></div>
-              <div class="specs" id="specs"></div>
-              <p class="description" id="description"></p>
-              <div class="tags" id="tags"></div>
-            </div>
-          </article>
+          </div>
+          <div class="fly-layer" id="flyLayer" aria-hidden="true"></div>
         </div>
 
         <div class="actions" aria-label="Действия с вариантом">
-          <button class="action-pill pass" id="skipBtn" type="button"><span>×</span><b>Не моё</b></button>
-          <button class="decision more" id="detailsBtn" type="button" aria-label="Подробнее" title="Подробнее">i</button>
-          <button class="action-pill like" id="saveBtn" type="button"><span>♥</span><b>В шортлист</b></button>
+          <button class="act sm rewind" id="rewindBtn" type="button" aria-label="Вернуть">
+            <span>↶</span>
+          </button>
+          <button class="act lg nope" id="skipBtn" type="button" aria-label="Мимо">
+            <span>×</span>
+          </button>
+          <button class="act sm more" id="detailsBtn" type="button" aria-label="Подробнее">
+            <span>i</span>
+          </button>
+          <button class="act lg like" id="saveBtn" type="button" aria-label="В шортлист">
+            <span>♥</span>
+          </button>
         </div>
       </section>
 
@@ -132,9 +122,9 @@
     </main>
 
     <nav class="tabbar" aria-label="Основная навигация">
-      <button class="tab active" data-screen="discover" type="button"><span>◇</span><b>Подбор</b></button>
+      <button class="tab active" data-screen="discover" type="button"><span>◇</span><b>Лента</b></button>
       <button class="tab" data-screen="favorites" type="button"><span>♥</span><b>Шортлист</b></button>
-      <button class="tab" data-screen="plan" type="button"><span>◌</span><b>Мои поиски</b></button>
+      <button class="tab" data-screen="plan" type="button"><span>⌕</span><b>Мои поиски</b></button>
     </nav>
   </div>
 
