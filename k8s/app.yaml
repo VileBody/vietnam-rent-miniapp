@@ -41,6 +41,8 @@ spec:
               value: "https://vietnam.teamgenius.ru/"
             - name: TELEGRAM_API_BASE
               value: "https://api.telegram.org"
+            - name: TELEGRAM_BOT_POLLING
+              value: "true"
           envFrom:
             - secretRef:
                 name: vietnest-app-env

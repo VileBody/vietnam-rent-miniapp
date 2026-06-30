@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -126,6 +127,12 @@ type TelegramAPIResponse struct {
 	Description string `json:"description"`
 }
 
+type TelegramGetUpdatesResponse struct {
+	OK          bool             `json:"ok"`
+	Description string           `json:"description"`
+	Result      []TelegramUpdate `json:"result"`
+}
+
 type UserSession struct {
 	User         AppUser          `json:"user"`
 	Usage        PaywallUsage     `json:"usage"`
@@ -176,6 +183,8 @@ func main() {
 	}
 
 	srv := &Server{db: db}
+	srv.startTelegramPolling(ctx)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", srv.handleHealth)
 	mux.HandleFunc("GET /api/session", srv.handleSession)
@@ -820,6 +829,95 @@ func telegramAPIBaseURL() string {
 	return strings.TrimRight(getenv("TELEGRAM_API_BASE", "https://api.telegram.org"), "/")
 }
 
+func telegramBotPollingEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TELEGRAM_BOT_POLLING"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) startTelegramPolling(ctx context.Context) {
+	if !telegramBotPollingEnabled() || strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")) == "" {
+		return
+	}
+	go s.runTelegramPolling(ctx)
+}
+
+func (s *Server) runTelegramPolling(ctx context.Context) {
+	log.Printf("Telegram bot polling enabled")
+	var offset int64
+	for {
+		updates, err := telegramGetUpdates(ctx, offset)
+		if err != nil {
+			log.Printf("telegram getUpdates failed: %v", err)
+			if !sleepContext(ctx, 5*time.Second) {
+				return
+			}
+			continue
+		}
+
+		for _, update := range updates {
+			if update.UpdateID >= offset {
+				offset = update.UpdateID + 1
+			}
+			s.handleTelegramUpdate(update)
+		}
+	}
+}
+
+func (s *Server) handleTelegramUpdate(update TelegramUpdate) {
+	if update.Message == nil || update.Message.Chat.ID == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	if err := sendTelegramStartMessage(ctx, update.Message.Chat.ID); err != nil {
+		log.Printf("telegram polling send message failed: %v", err)
+	}
+}
+
+func sleepContext(ctx context.Context, duration time.Duration) bool {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func telegramGetUpdates(ctx context.Context, offset int64) ([]TelegramUpdate, error) {
+	payload := map[string]any{
+		"timeout":         25,
+		"allowed_updates": []string{"message"},
+	}
+	if offset > 0 {
+		payload["offset"] = offset
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 35*time.Second)
+	defer cancel()
+	raw, err := telegramPostRaw(reqCtx, "getUpdates", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiResp TelegramGetUpdatesResponse
+	if err := json.Unmarshal(raw, &apiResp); err != nil {
+		return nil, err
+	}
+	if !apiResp.OK {
+		if apiResp.Description == "" {
+			apiResp.Description = "unknown telegram getUpdates error"
+		}
+		return nil, errors.New(apiResp.Description)
+	}
+	return apiResp.Result, nil
+}
+
 func (s *Server) handleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	if secret := strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET")); secret != "" && r.Header.Get("X-Telegram-Bot-Api-Secret-Token") != secret {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid telegram webhook secret"})
@@ -867,39 +965,55 @@ func sendTelegramStartMessage(ctx context.Context, chatID int64) error {
 }
 
 func telegramPost(ctx context.Context, method string, payload any) error {
+	raw, err := telegramPostRaw(ctx, method, payload)
+	if err != nil {
+		return err
+	}
+
+	var apiResp TelegramAPIResponse
+	if err := json.Unmarshal(raw, &apiResp); err != nil {
+		return err
+	}
+	if !apiResp.OK {
+		if apiResp.Description == "" {
+			apiResp.Description = "unknown telegram API error"
+		}
+		return fmt.Errorf("telegram %s failed: %s", method, apiResp.Description)
+	}
+	return nil
+}
+
+func telegramPostRaw(ctx context.Context, method string, payload any) ([]byte, error) {
 	botToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
 	if botToken == "" {
-		return errors.New("TELEGRAM_BOT_TOKEN is not configured")
+		return nil, errors.New("TELEGRAM_BOT_TOKEN is not configured")
 	}
 
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	endpoint := fmt.Sprintf("%s/bot%s/%s", telegramAPIBaseURL(), botToken, method)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(raw))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("telegram %s request failed: %s", method, strings.ReplaceAll(err.Error(), botToken, "<redacted>"))
+		return nil, fmt.Errorf("telegram %s request failed: %s", method, strings.ReplaceAll(err.Error(), botToken, "<redacted>"))
 	}
 	defer resp.Body.Close()
 
-	var apiResp TelegramAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return err
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
-	if !apiResp.OK {
-		if apiResp.Description == "" {
-			apiResp.Description = resp.Status
-		}
-		return fmt.Errorf("telegram %s failed: %s", method, apiResp.Description)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("telegram %s failed: %s", method, resp.Status)
 	}
-	return nil
+	return body, nil
 }
 
 func (s *Server) requireUser(ctx context.Context, r *http.Request) (AppUser, error) {
