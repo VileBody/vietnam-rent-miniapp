@@ -833,9 +833,14 @@ func (s *Server) handleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if update.Message != nil && update.Message.Chat.ID != 0 {
-		if err := sendTelegramStartMessage(r.Context(), update.Message.Chat.ID); err != nil {
-			log.Printf("telegram webhook send message failed: %v", err)
-		}
+		chatID := update.Message.Chat.ID
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			defer cancel()
+			if err := sendTelegramStartMessage(ctx, chatID); err != nil {
+				log.Printf("telegram webhook send message failed: %v", err)
+			}
+		}()
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
