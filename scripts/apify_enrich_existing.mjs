@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 const ACTOR_ID = "apify~facebook-marketplace-scraper";
@@ -8,6 +8,8 @@ const API_BASE = process.env.VIETNEST_API_BASE || "https://vietnam.teamgenius.ru
 const OUT_DIR = process.env.APIFY_OUT_DIR || join(process.cwd(), "data", "apify-detail", new Date().toISOString().replace(/[:.]/g, "-"));
 const BATCH_SIZE = Number(process.env.APIFY_BATCH_SIZE || "50");
 const POLL_MS = Number(process.env.APIFY_POLL_MS || "5000");
+const MEDIA_CONCURRENCY = Number(process.env.APIFY_MEDIA_CONCURRENCY || "6");
+const MEDIA_TIMEOUT_MS = Number(process.env.APIFY_MEDIA_TIMEOUT_MS || "30000");
 
 if (!TOKEN) {
   console.error("APIFY_TOKEN is required");
@@ -73,6 +75,16 @@ async function getDatasetItems(datasetId) {
   return apify(`datasets/${datasetId}/items?clean=false`);
 }
 
+async function readJSONIfExists(path) {
+  try {
+    await access(path);
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 function mediaFromItem(item) {
   const media = [];
   for (const photo of item.listingPhotos || item.listing_photos || []) {
@@ -107,34 +119,51 @@ function contentExt(contentType, url) {
   return parsed && parsed.length <= 6 ? parsed : ".bin";
 }
 
+async function downloadOneMedia(entry, id, sourceName, index) {
+  try {
+    const response = await fetch(entry.source_url, {
+      headers: { "user-agent": "Mozilla/5.0 VietNest media mirror" },
+      signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const checksum = createHash("sha256").update(buffer).digest("hex");
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    const ext = contentExt(contentType, entry.source_url);
+    const dir = join(OUT_DIR, "media", sourceName, id || "unknown");
+    await mkdir(dir, { recursive: true });
+    const localPath = join("media", sourceName, id || "unknown", `${index}-${checksum.slice(0, 16)}${ext}`);
+    await writeFile(join(OUT_DIR, localPath), buffer);
+    return {
+      ...entry,
+      local_path: localPath,
+      bytes: buffer.length,
+      checksum,
+      content_type: contentType,
+    };
+  } catch (error) {
+    return { ...entry, error: error.message };
+  }
+}
+
 async function downloadMediaForItem(item, sourceName = "detail") {
   const id = itemId(item);
   const media = mediaFromItem(item);
-  const results = [];
-  for (let index = 0; index < media.length; index += 1) {
-    const entry = media[index];
-    try {
-      const response = await fetch(entry.source_url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const checksum = createHash("sha256").update(buffer).digest("hex");
-      const contentType = response.headers.get("content-type") || "application/octet-stream";
-      const ext = contentExt(contentType, entry.source_url);
-      const dir = join(OUT_DIR, "media", sourceName, id || "unknown");
-      await mkdir(dir, { recursive: true });
-      const localPath = join("media", sourceName, id || "unknown", `${index}-${checksum.slice(0, 16)}${ext}`);
-      await writeFile(join(OUT_DIR, localPath), buffer);
-      results.push({
-        ...entry,
-        local_path: localPath,
-        bytes: buffer.length,
-        checksum,
-        content_type: contentType,
-      });
-    } catch (error) {
-      results.push({ ...entry, error: error.message });
+  return Promise.all(media.map((entry, index) => downloadOneMedia(entry, id, sourceName, index)));
+}
+
+async function mapPool(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    for (;;) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
     }
-  }
+  });
+  await Promise.all(workers);
   return results;
 }
 
@@ -177,29 +206,38 @@ console.log(`enriching ${listings.length} listings in ${batches.length} batches 
 
 for (let index = 0; index < batches.length; index += 1) {
   const batch = batches[index];
-  const run = await startRun(batch, index + 1);
-  const finished = await waitRun(run.id, index + 1);
-  runs.push({
-    batch: index + 1,
-    runId: finished.id,
-    datasetId: finished.defaultDatasetId,
-    status: finished.status,
-    usageTotalUsd: finished.usageTotalUsd,
-    itemCount: finished.stats?.itemsCount,
+  const batchName = `batch-${String(index + 1).padStart(2, "0")}`;
+  const rawPath = join(OUT_DIR, `${batchName}.raw.json`);
+  let items = await readJSONIfExists(rawPath);
+  if (items) {
+    console.log(`${batchName}: using existing raw file (${items.length} items)`);
+  } else {
+    const run = await startRun(batch, index + 1);
+    const finished = await waitRun(run.id, index + 1);
+    runs.push({
+      batch: index + 1,
+      runId: finished.id,
+      datasetId: finished.defaultDatasetId,
+      status: finished.status,
+      usageTotalUsd: finished.usageTotalUsd,
+      itemCount: finished.stats?.itemsCount,
+    });
+    if (finished.status !== "SUCCEEDED") {
+      await writeFile(join(OUT_DIR, "manifest.partial.json"), JSON.stringify({ beforeUsage, runs }, null, 2));
+      throw new Error(`Batch ${index + 1} failed with ${finished.status}`);
+    }
+    items = await getDatasetItems(finished.defaultDatasetId);
+    await writeFile(rawPath, JSON.stringify(items, null, 2));
+  }
+  rawItems.push(...items);
+  const batchNormalized = await mapPool(items, MEDIA_CONCURRENCY, async (item) => {
+    const media = await downloadMediaForItem(item, batchName);
+    return normalizeItem(item, media);
   });
-  if (finished.status !== "SUCCEEDED") {
-    await writeFile(join(OUT_DIR, "manifest.partial.json"), JSON.stringify({ beforeUsage, runs }, null, 2));
-    throw new Error(`Batch ${index + 1} failed with ${finished.status}`);
-  }
-  const items = await getDatasetItems(finished.defaultDatasetId);
-  await writeFile(join(OUT_DIR, `batch-${String(index + 1).padStart(2, "0")}.raw.json`), JSON.stringify(items, null, 2));
-  for (const item of items) {
-    rawItems.push(item);
-    const media = await downloadMediaForItem(item, `batch-${String(index + 1).padStart(2, "0")}`);
-    normalized.push(normalizeItem(item, media));
-  }
+  normalized.push(...batchNormalized);
   await writeFile(join(OUT_DIR, "details.raw.json"), JSON.stringify(rawItems, null, 2));
   await writeFile(join(OUT_DIR, "details.normalized.json"), JSON.stringify(normalized, null, 2));
+  console.log(`${batchName}: normalized ${batchNormalized.length} items, total ${normalized.length}`);
 }
 
 const afterUsage = await getMonthlyUsage();
