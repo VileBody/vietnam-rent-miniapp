@@ -36,7 +36,7 @@ spec:
             - name: FREE_VIEW_LIMIT
               value: "30"
             - name: TELEGRAM_SUBSCRIPTION_URL
-              value: "https://t.me/teamgenius_support"
+              value: "https://t.me/nemelokkk"
           envFrom:
             - secretRef:
                 name: vietnest-app-env
