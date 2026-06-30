@@ -10,6 +10,7 @@ const BATCH_SIZE = Number(process.env.APIFY_BATCH_SIZE || "50");
 const POLL_MS = Number(process.env.APIFY_POLL_MS || "5000");
 const MEDIA_CONCURRENCY = Number(process.env.APIFY_MEDIA_CONCURRENCY || "6");
 const MEDIA_TIMEOUT_MS = Number(process.env.APIFY_MEDIA_TIMEOUT_MS || "30000");
+const APIFY_RETRIES = Number(process.env.APIFY_RETRIES || "4");
 
 if (!TOKEN) {
   console.error("APIFY_TOKEN is required");
@@ -18,18 +19,30 @@ if (!TOKEN) {
 
 async function apify(path, options = {}) {
   const sep = path.includes("?") ? "&" : "?";
-  const response = await fetch(`https://api.apify.com/v2/${path}${sep}token=${TOKEN}`, options);
-  const text = await response.text();
-  let payload;
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {
-    payload = text;
+  let lastError;
+  for (let attempt = 1; attempt <= APIFY_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(`https://api.apify.com/v2/${path}${sep}token=${TOKEN}`, options);
+      const text = await response.text();
+      let payload;
+      try {
+        payload = text ? JSON.parse(text) : {};
+      } catch {
+        payload = text;
+      }
+      if (!response.ok) {
+        throw new Error(`Apify ${response.status}: ${typeof payload === "string" ? payload : JSON.stringify(payload)}`);
+      }
+      return payload.data ?? payload;
+    } catch (error) {
+      lastError = error;
+      if (attempt === APIFY_RETRIES) break;
+      const delay = 1000 * attempt * attempt;
+      console.warn(`Apify request failed (${attempt}/${APIFY_RETRIES}) ${path}: ${error.message}; retrying in ${delay}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
-  if (!response.ok) {
-    throw new Error(`Apify ${response.status}: ${typeof payload === "string" ? payload : JSON.stringify(payload)}`);
-  }
-  return payload.data ?? payload;
+  throw lastError;
 }
 
 async function getMonthlyUsage() {
