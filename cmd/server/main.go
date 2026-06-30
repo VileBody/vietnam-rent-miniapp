@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -94,6 +95,37 @@ type TelegramInitUser struct {
 	PhotoURL     string `json:"photo_url"`
 }
 
+type TelegramUpdate struct {
+	UpdateID int64            `json:"update_id"`
+	Message  *TelegramMessage `json:"message"`
+}
+
+type TelegramMessage struct {
+	MessageID int64            `json:"message_id"`
+	From      *TelegramBotUser `json:"from,omitempty"`
+	Chat      TelegramChat     `json:"chat"`
+	Text      string           `json:"text"`
+}
+
+type TelegramBotUser struct {
+	ID           int64  `json:"id"`
+	IsBot        bool   `json:"is_bot"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Username     string `json:"username"`
+	LanguageCode string `json:"language_code"`
+}
+
+type TelegramChat struct {
+	ID   int64  `json:"id"`
+	Type string `json:"type"`
+}
+
+type TelegramAPIResponse struct {
+	OK          bool   `json:"ok"`
+	Description string `json:"description"`
+}
+
 type UserSession struct {
 	User         AppUser          `json:"user"`
 	Usage        PaywallUsage     `json:"usage"`
@@ -149,6 +181,7 @@ func main() {
 	mux.HandleFunc("GET /api/session", srv.handleSession)
 	mux.HandleFunc("POST /api/events", srv.handleEvent)
 	mux.HandleFunc("POST /api/searches", srv.handleSearch)
+	mux.HandleFunc("POST /api/telegram/webhook", srv.handleTelegramWebhook)
 	mux.HandleFunc("GET /api/listings", srv.handleListings)
 	mux.HandleFunc("GET /api/listings/{id}", srv.handleListing)
 	mux.HandleFunc("GET /api/scrape-sources", srv.handleScrapeSources)
@@ -777,6 +810,91 @@ func freeViewLimit() int {
 
 func subscriptionSupportURL() string {
 	return getenv("TELEGRAM_SUBSCRIPTION_URL", "https://t.me/teamgenius_support")
+}
+
+func telegramMiniAppURL() string {
+	return getenv("TELEGRAM_MINIAPP_URL", "https://vietnam.teamgenius.ru/")
+}
+
+func telegramAPIBaseURL() string {
+	return strings.TrimRight(getenv("TELEGRAM_API_BASE", "https://api.telegram.org"), "/")
+}
+
+func (s *Server) handleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
+	if secret := strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET")); secret != "" && r.Header.Get("X-Telegram-Bot-Api-Secret-Token") != secret {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid telegram webhook secret"})
+		return
+	}
+
+	var update TelegramUpdate
+	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid telegram update"})
+		return
+	}
+
+	if update.Message != nil && update.Message.Chat.ID != 0 {
+		if err := sendTelegramStartMessage(r.Context(), update.Message.Chat.ID); err != nil {
+			log.Printf("telegram webhook send message failed: %v", err)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func sendTelegramStartMessage(ctx context.Context, chatID int64) error {
+	payload := map[string]any{
+		"chat_id": chatID,
+		"text":    "VietNest: квартиры и виллы во Вьетнаме в формате свайпов. Открой мини-апп, чтобы начать подбор.",
+		"reply_markup": map[string]any{
+			"inline_keyboard": [][]map[string]any{
+				{
+					{
+						"text": "Open VietNest",
+						"web_app": map[string]string{
+							"url": telegramMiniAppURL(),
+						},
+					},
+				},
+			},
+		},
+	}
+	return telegramPost(ctx, "sendMessage", payload)
+}
+
+func telegramPost(ctx context.Context, method string, payload any) error {
+	botToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if botToken == "" {
+		return errors.New("TELEGRAM_BOT_TOKEN is not configured")
+	}
+
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	endpoint := fmt.Sprintf("%s/bot%s/%s", telegramAPIBaseURL(), botToken, method)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("telegram %s request failed: %s", method, strings.ReplaceAll(err.Error(), botToken, "<redacted>"))
+	}
+	defer resp.Body.Close()
+
+	var apiResp TelegramAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return err
+	}
+	if !apiResp.OK {
+		if apiResp.Description == "" {
+			apiResp.Description = resp.Status
+		}
+		return fmt.Errorf("telegram %s failed: %s", method, apiResp.Description)
+	}
+	return nil
 }
 
 func (s *Server) requireUser(ctx context.Context, r *http.Request) (AppUser, error) {

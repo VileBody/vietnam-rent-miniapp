@@ -37,6 +37,10 @@ spec:
               value: "30"
             - name: TELEGRAM_SUBSCRIPTION_URL
               value: "https://t.me/nemelokkk"
+            - name: TELEGRAM_MINIAPP_URL
+              value: "https://vietnam.teamgenius.ru/"
+            - name: TELEGRAM_API_BASE
+              value: "https://api.telegram.org"
           envFrom:
             - secretRef:
                 name: vietnest-app-env
