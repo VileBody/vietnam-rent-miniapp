@@ -156,6 +156,9 @@
       <button class="hero-button" id="closeDetailBtn" type="button" aria-label="Back">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
+      <button class="hero-button expand" id="detailExpandBtn" type="button" aria-label="Open photo full screen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"/></svg>
+      </button>
       <button class="hero-button heart" id="detailLikeBtn" type="button" aria-label="Add to shortlist">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
       </button>
@@ -182,6 +185,20 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 01-12.2 7.6L3 21l1.9-5.7A8.5 8.5 0 1121 11.5z"/></svg>
       </button>
     </footer>
+  </section>
+
+  <section class="photo-viewer" id="photoViewer" aria-hidden="true">
+    <button class="viewer-close" id="viewerCloseBtn" type="button" aria-label="Close full screen photo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="viewer-count" id="viewerCount">1 / 1</div>
+    <button class="viewer-nav prev" id="viewerPrevBtn" type="button" aria-label="Previous photo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <img id="viewerImage" alt="Apartment photo full screen" draggable="false" />
+    <button class="viewer-nav next" id="viewerNextBtn" type="button" aria-label="Next photo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
   </section>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

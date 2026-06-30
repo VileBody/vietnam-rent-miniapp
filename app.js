@@ -86,6 +86,10 @@ let homes = fallbackHomes.map(normalizeHome);
 const state = {
   screen: 'discover',
   activeDetailId: null,
+  detailPhotoIndex: 0,
+  viewerHomeId: null,
+  viewerPhotoIndex: 0,
+  photoIndexes: {},
   queue: [],
   history: [],
   animating: false,
@@ -258,6 +262,28 @@ function money(value) {
   return `$${Number(value).toLocaleString('en-US')}`;
 }
 
+function photoIndex(home) {
+  if (!home?.photos?.length) return 0;
+  return clamp(Number(state.photoIndexes[home.id]) || 0, 0, home.photos.length - 1);
+}
+
+function setPhotoIndex(home, index, { syncDetail = false } = {}) {
+  if (!home?.photos?.length) return 0;
+  const next = (index + home.photos.length) % home.photos.length;
+  state.photoIndexes[home.id] = next;
+  if (syncDetail || state.activeDetailId === home.id) state.detailPhotoIndex = next;
+  return next;
+}
+
+function stepPhoto(home, delta, options = {}) {
+  return setPhotoIndex(home, photoIndex(home) + delta, options);
+}
+
+function currentDetailPhotoIndex(home) {
+  if (!home?.photos?.length) return 0;
+  return clamp(Number(state.detailPhotoIndex) || 0, 0, home.photos.length - 1);
+}
+
 function haptic(type = 'light') {
   try {
     tg?.HapticFeedback?.impactOccurred(type);
@@ -309,7 +335,8 @@ function displaySpecs(home) {
 }
 
 function cardMarkup(home, depth) {
-  const photo = home.photos[0];
+  const selectedPhoto = photoIndex(home);
+  const photo = home.photos[selectedPhoto] || home.photos[0];
   const specs = displaySpecs(home);
   return `
     <div class="photo">
@@ -328,7 +355,7 @@ function cardMarkup(home, depth) {
     <div class="card-copy">
       <div class="card-price"><strong>${escapeHTML(money(home.price))}</strong><span>/month</span></div>
       <h2>${escapeHTML(home.area)}</h2>
-      <p>${escapeHTML(home.title)}</p>
+      <p>${home.photos.length > 1 ? `<span class="photo-progress">${selectedPhoto + 1}/${home.photos.length}</span> ` : ''}${escapeHTML(home.title)}</p>
       <div class="card-specs">
         ${specs.map((spec, index) => `<span>${specIcon(index)}${escapeHTML(spec)}</span>`).join('')}
       </div>
@@ -446,6 +473,16 @@ function animateAndAdvance(direction, { save = false } = {}) {
   }, direction === 'right' ? 600 : 420);
 }
 
+function refreshTopCardPhoto(home) {
+  const card = $$('.home-card', $('deck')).find((node) => node.dataset.id === home.id);
+  if (!card) return;
+  const selectedPhoto = photoIndex(home);
+  const image = card.querySelector('.photo img');
+  const progress = card.querySelector('.photo-progress');
+  if (image) image.src = home.photos[selectedPhoto] || home.photos[0];
+  if (progress) progress.textContent = `${selectedPhoto + 1}/${home.photos.length}`;
+}
+
 function attachDrag(card) {
   let startX = 0;
   let startY = 0;
@@ -481,6 +518,20 @@ function attachDrag(card) {
     dragging = false;
     card.classList.remove('dragging');
     if (pointerId !== null && card.hasPointerCapture?.(pointerId)) card.releasePointerCapture(pointerId);
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+      const home = currentHome();
+      if (home?.photos?.length > 1) {
+        const rect = card.getBoundingClientRect();
+        stepPhoto(home, startX < rect.left + rect.width / 2 ? -1 : 1);
+        refreshTopCardPhoto(home);
+        haptic('light');
+      }
+      card.style.transform = cardPosition(0);
+      card.querySelector('.stamp.like').style.opacity = '0';
+      card.querySelector('.stamp.skip').style.opacity = '0';
+      event?.preventDefault();
+      return;
+    }
     if (dx > 105) return animateAndAdvance('right', { save: true });
     if (dx < -105) return animateAndAdvance('left');
     card.style.transition = 'transform .34s cubic-bezier(.22, 1, .36, 1), opacity .35s ease';
@@ -588,12 +639,13 @@ function detailSpecItems(home) {
 function openDetail(home = currentHome()) {
   if (!home) return;
   state.activeDetailId = home.id;
-  $('detailHero').style.backgroundImage = `url("${home.photos[0]}")`;
+  state.detailPhotoIndex = photoIndex(home);
+  renderDetailPhoto(home);
   $('detailPrice').textContent = money(home.price);
   $('detailTitle').textContent = home.title;
   $('detailArea').textContent = home.area;
   $('detailScore').textContent = String(fitScore(home));
-  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)} photo ${index + 1}" />`).join('');
+  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="Show photo ${index + 1}"><img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)} photo ${index + 1}" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
   $('detailAbout').textContent = home.about;
   const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
@@ -603,9 +655,63 @@ function openDetail(home = currentHome()) {
   $('detailOverlay').setAttribute('aria-hidden', 'false');
 }
 
+function renderDetailPhoto(home = activeDetail()) {
+  if (!home) return;
+  const index = currentDetailPhotoIndex(home);
+  const photo = home.photos[index] || home.photos[0];
+  $('detailHero').style.backgroundImage = `url("${photo}")`;
+  $$('.detail-thumb', $('detailGallery')).forEach((thumb) => {
+    thumb.classList.toggle('is-active', Number(thumb.dataset.photoIndex) === index);
+  });
+}
+
+function selectDetailPhoto(index) {
+  const home = activeDetail();
+  if (!home) return;
+  state.detailPhotoIndex = setPhotoIndex(home, index, { syncDetail: true });
+  renderDetailPhoto(home);
+}
+
+function openPhotoViewer(home = activeDetail(), index = state.detailPhotoIndex) {
+  if (!home?.photos?.length) return;
+  state.viewerHomeId = home.id;
+  state.viewerPhotoIndex = setPhotoIndex(home, index, { syncDetail: state.activeDetailId === home.id });
+  renderPhotoViewer();
+  $('photoViewer').classList.add('is-open');
+  $('photoViewer').setAttribute('aria-hidden', 'false');
+}
+
+function activeViewerHome() {
+  return homes.find((home) => home.id === state.viewerHomeId) || activeDetail();
+}
+
+function renderPhotoViewer() {
+  const home = activeViewerHome();
+  if (!home?.photos?.length) return;
+  const index = clamp(Number(state.viewerPhotoIndex) || 0, 0, home.photos.length - 1);
+  state.viewerPhotoIndex = index;
+  $('viewerImage').src = home.photos[index];
+  $('viewerImage').alt = `${home.title} photo ${index + 1}`;
+  $('viewerCount').textContent = `${index + 1} / ${home.photos.length}`;
+}
+
+function stepPhotoViewer(delta) {
+  const home = activeViewerHome();
+  if (!home?.photos?.length) return;
+  state.viewerPhotoIndex = setPhotoIndex(home, state.viewerPhotoIndex + delta, { syncDetail: state.activeDetailId === home.id });
+  renderPhotoViewer();
+  renderDetailPhoto(home);
+}
+
+function closePhotoViewer() {
+  $('photoViewer').classList.remove('is-open');
+  $('photoViewer').setAttribute('aria-hidden', 'true');
+}
+
 function closeDetail() {
   $('detailOverlay').classList.remove('is-open');
   $('detailOverlay').setAttribute('aria-hidden', 'true');
+  closePhotoViewer();
 }
 
 function saveDetail() {
@@ -707,11 +813,38 @@ function bind() {
   });
 
   $('closeDetailBtn').addEventListener('click', closeDetail);
+  $('detailExpandBtn').addEventListener('click', () => openPhotoViewer());
+  $('detailHero').addEventListener('click', (event) => {
+    if (event.target.closest('button')) return;
+    openPhotoViewer();
+  });
+  $('detailGallery').addEventListener('click', (event) => {
+    const thumb = event.target.closest('button[data-photo-index]');
+    if (!thumb) return;
+    selectDetailPhoto(Number(thumb.dataset.photoIndex) || 0);
+  });
   $('detailLikeBtn').addEventListener('click', saveDetail);
   $('detailPrimaryBtn').addEventListener('click', saveDetail);
   $('openFbBtn').addEventListener('click', () => {
     const home = activeDetail();
     if (home) openUrl(home.fbUrl);
+  });
+  $('viewerCloseBtn').addEventListener('click', closePhotoViewer);
+  $('viewerPrevBtn').addEventListener('click', () => stepPhotoViewer(-1));
+  $('viewerNextBtn').addEventListener('click', () => stepPhotoViewer(1));
+  $('photoViewer').addEventListener('click', (event) => {
+    if (event.target.closest('button')) return;
+    const rect = $('photoViewer').getBoundingClientRect();
+    stepPhotoViewer(event.clientX < rect.left + rect.width / 2 ? -1 : 1);
+  });
+  window.addEventListener('keydown', (event) => {
+    if ($('photoViewer').classList.contains('is-open')) {
+      if (event.key === 'Escape') closePhotoViewer();
+      if (event.key === 'ArrowLeft') stepPhotoViewer(-1);
+      if (event.key === 'ArrowRight') stepPhotoViewer(1);
+    } else if ($('detailOverlay').classList.contains('is-open') && event.key === 'Escape') {
+      closeDetail();
+    }
   });
 
   bindFilters();

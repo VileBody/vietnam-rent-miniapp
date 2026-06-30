@@ -328,6 +328,11 @@ html[data-theme="warm"] .filter-head h2 {
   font-weight: 600;
 }
 
+.photo-progress {
+  color: #fff;
+  font-weight: 800;
+}
+
 .card-specs {
   display: flex;
   flex-wrap: wrap;
@@ -990,9 +995,17 @@ legend,
   color: #fff;
 }
 
+.hero-button.expand {
+  right: 66px;
+}
+
 .hero-button.heart svg {
   fill: currentColor;
   stroke: none;
+}
+
+.detail-hero {
+  cursor: zoom-in;
 }
 
 .detail-body {
@@ -1067,10 +1080,28 @@ legend,
   scrollbar-width: none;
 }
 
+.detail-thumb {
+  flex: 0 0 auto;
+  width: 124px;
+  height: 92px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 17px;
+  background: transparent;
+  overflow: hidden;
+  opacity: .74;
+  transition: border-color .16s ease, opacity .16s ease, transform .16s ease;
+}
+
+.detail-thumb.is-active {
+  border-color: var(--accent);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
 .detail-gallery img {
   width: 124px;
   height: 92px;
-  flex: 0 0 auto;
   border-radius: 15px;
   object-fit: cover;
   background: var(--primary-soft);
@@ -1164,6 +1195,81 @@ legend,
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
+}
+
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #07080c;
+  color: #fff;
+  overflow: hidden;
+}
+
+.photo-viewer.is-open {
+  display: flex;
+}
+
+.photo-viewer img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.viewer-close,
+.viewer-nav,
+.viewer-count {
+  position: absolute;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+}
+
+.viewer-close {
+  top: calc(14px + var(--safe-top));
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+}
+
+.viewer-count {
+  top: calc(18px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  color: rgba(255, 255, 255, .9);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.viewer-nav {
+  top: 50%;
+  width: 48px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  transform: translateY(-50%);
+}
+
+.viewer-nav.prev {
+  left: 10px;
+}
+
+.viewer-nav.next {
+  right: 10px;
 }
 
 .toast {
