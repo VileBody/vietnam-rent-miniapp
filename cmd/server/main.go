@@ -358,10 +358,7 @@ func seed(ctx context.Context, db *pgxpool.Pool) error {
 	if err := seedScrapeSources(ctx, db); err != nil {
 		return err
 	}
-	if err := seedListingsData(ctx, db); err != nil {
-		return err
-	}
-	return seedListingChildren(ctx, db)
+	return nil
 }
 
 func seedLocations(ctx context.Context, db *pgxpool.Pool) error {
