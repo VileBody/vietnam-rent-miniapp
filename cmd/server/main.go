@@ -1017,20 +1017,28 @@ func telegramPostRaw(ctx context.Context, method string, payload any) ([]byte, e
 }
 
 func (s *Server) requireUser(ctx context.Context, r *http.Request) (AppUser, error) {
+	clientID := strings.TrimSpace(r.Header.Get("X-Vietnest-Client-Id"))
+	if len(clientID) > 120 {
+		clientID = clientID[:120]
+	}
+
 	if initData := strings.TrimSpace(r.Header.Get("X-Telegram-Init-Data")); initData != "" && strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")) != "" {
 		tgUser, err := validateTelegramInitData(initData)
 		if err != nil {
 			return AppUser{}, err
 		}
-		return s.upsertTelegramUser(ctx, tgUser)
+		user, err := s.upsertTelegramUser(ctx, tgUser)
+		if err != nil {
+			return AppUser{}, err
+		}
+		if clientID != "" {
+			return s.mergeClientUserIntoTelegram(ctx, user, clientID)
+		}
+		return user, nil
 	}
 
-	clientID := strings.TrimSpace(r.Header.Get("X-Vietnest-Client-Id"))
 	if clientID == "" {
 		return AppUser{}, errors.New("missing client id")
-	}
-	if len(clientID) > 120 {
-		clientID = clientID[:120]
 	}
 	return s.upsertClientUser(ctx, clientID)
 }
@@ -1124,6 +1132,88 @@ ON CONFLICT (client_id) DO UPDATE SET
 RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
 `, pgx.NamedArgs{"client_id": clientID})
 	return scanAppUser(row)
+}
+
+func (s *Server) mergeClientUserIntoTelegram(ctx context.Context, user AppUser, clientID string) (AppUser, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return AppUser{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var guestID int64
+	err = tx.QueryRow(ctx, `
+SELECT id
+FROM app_users
+WHERE client_id = @client_id
+  AND telegram_user_id IS NULL
+  AND id <> @telegram_user_id
+FOR UPDATE;
+`, pgx.NamedArgs{"client_id": clientID, "telegram_user_id": user.ID}).Scan(&guestID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return AppUser{}, err
+	}
+
+	if guestID != 0 {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO user_listing_views (user_id, listing_id, first_viewed_at, last_viewed_at, view_count)
+SELECT @target_user_id, listing_id, first_viewed_at, last_viewed_at, view_count
+FROM user_listing_views
+WHERE user_id = @guest_user_id
+ON CONFLICT (user_id, listing_id) DO UPDATE SET
+  first_viewed_at = LEAST(user_listing_views.first_viewed_at, excluded.first_viewed_at),
+  last_viewed_at = GREATEST(user_listing_views.last_viewed_at, excluded.last_viewed_at),
+  view_count = user_listing_views.view_count + excluded.view_count;
+`, pgx.NamedArgs{"target_user_id": user.ID, "guest_user_id": guestID}); err != nil {
+			return AppUser{}, err
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO user_favorites (user_id, listing_id, created_at)
+SELECT @target_user_id, listing_id, created_at
+FROM user_favorites
+WHERE user_id = @guest_user_id
+ON CONFLICT (user_id, listing_id) DO NOTHING;
+`, pgx.NamedArgs{"target_user_id": user.ID, "guest_user_id": guestID}); err != nil {
+			return AppUser{}, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE user_listing_actions SET user_id = @target_user_id WHERE user_id = @guest_user_id`, pgx.NamedArgs{"target_user_id": user.ID, "guest_user_id": guestID}); err != nil {
+			return AppUser{}, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE user_searches SET user_id = @target_user_id WHERE user_id = @guest_user_id`, pgx.NamedArgs{"target_user_id": user.ID, "guest_user_id": guestID}); err != nil {
+			return AppUser{}, err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM app_users WHERE id = @guest_user_id`, pgx.NamedArgs{"guest_user_id": guestID}); err != nil {
+			return AppUser{}, err
+		}
+	}
+
+	row := tx.QueryRow(ctx, `
+UPDATE app_users
+SET client_id = @client_id,
+    last_seen_at = now()
+WHERE id = @user_id
+  AND NOT EXISTS (
+    SELECT 1 FROM app_users
+    WHERE client_id = @client_id
+      AND id <> @user_id
+  )
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
+`, pgx.NamedArgs{"client_id": clientID, "user_id": user.ID})
+	merged, err := scanAppUser(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		merged, err = scanAppUser(tx.QueryRow(ctx, `
+SELECT id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()))
+FROM app_users
+WHERE id = @user_id;
+`, pgx.NamedArgs{"user_id": user.ID}))
+	}
+	if err != nil {
+		return AppUser{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AppUser{}, err
+	}
+	return merged, nil
 }
 
 func scanAppUser(row pgx.Row) (AppUser, error) {

@@ -192,14 +192,14 @@ async function api(path, options = {}) {
   return payload;
 }
 
-function applySession(session) {
+function applySession(session, { openPaywall = true } = {}) {
   if (!session) return;
   state.session = session;
   const usage = session.usage || {};
   const remaining = Math.max(0, Number(usage.remaining ?? usage.freeLimit ?? 30));
   $('paywallUsage').textContent = `${usage.viewed || 0}/${usage.freeLimit || window.VIETNEST_FREE_VIEW_LIMIT || 30}`;
   $('paywallRemaining').textContent = String(remaining);
-  if (usage.paywalled && state.screen === 'discover') showPaywall();
+  if (openPaywall && usage.paywalled && state.screen === 'discover') showPaywall();
 }
 
 async function loadSession() {
@@ -562,6 +562,24 @@ function isSessionPaywalled() {
   return Boolean(state.session?.usage?.paywalled);
 }
 
+function wouldExceedViewLimit(home) {
+  const usage = state.session?.usage;
+  if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return false;
+  return Boolean(usage.paywalled) || Number(usage.remaining) <= 0;
+}
+
+function consumeViewOptimistically(home) {
+  const usage = state.session?.usage;
+  if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return;
+  const nextUsage = {
+    ...usage,
+    viewed: Number(usage.viewed || 0) + 1,
+    remaining: Math.max(0, Number(usage.remaining || 0) - 1),
+  };
+  nextUsage.paywalled = nextUsage.remaining <= 0;
+  applySession({ ...state.session, usage: nextUsage }, { openPaywall: false });
+}
+
 function trackSwipeActions(home, direction, save) {
   void recordAction('view', home.id, { direction, save }).then((allowed) => {
     if (allowed && save) {
@@ -579,7 +597,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
     return;
   }
 
-  if (isSessionPaywalled()) {
+  if (isSessionPaywalled() || wouldExceedViewLimit(home)) {
     showPaywall();
     return;
   }
@@ -590,6 +608,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
   if (direction === 'right') likeStamp.style.opacity = '1';
   if (direction === 'left') skipStamp.style.opacity = '1';
   animateStackBehind();
+  consumeViewOptimistically(home);
   trackSwipeActions(home, direction, save);
 
   if (save) {
