@@ -26,7 +26,7 @@ type detailItem struct {
 	ListingID   string          `json:"listing_id"`
 	URL         string          `json:"url"`
 	Title       string          `json:"title"`
-	Description string          `json:"description"`
+	Description any             `json:"description"`
 	Price       map[string]any  `json:"price"`
 	Location    map[string]any  `json:"location"`
 	Details     []any           `json:"details"`
@@ -63,6 +63,7 @@ type existingListing struct {
 	FBURL     string
 	Photos    []string
 	Amenities []string
+	HasDetail bool
 }
 
 type normalizedDetail struct {
@@ -89,6 +90,19 @@ func main() {
 	}
 }
 
+func importTimeout() time.Duration {
+	minutes, err := strconv.Atoi(strings.TrimSpace(os.Getenv("APIFY_DETAIL_IMPORT_TIMEOUT_MINUTES")))
+	if err != nil || minutes <= 0 {
+		minutes = 60
+	}
+	return time.Duration(minutes) * time.Minute
+}
+
+func skipImported() bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("APIFY_DETAIL_SKIP_IMPORTED")))
+	return value == "1" || value == "true" || value == "yes"
+}
+
 func run() error {
 	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if dbURL == "" {
@@ -108,7 +122,7 @@ func run() error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), importTimeout())
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, dbURL)
@@ -155,6 +169,11 @@ func importDetails(ctx context.Context, pool *pgxpool.Pool, items []detailItem) 
 			skipped++
 			continue
 		}
+		if skipImported() && existing.HasDetail {
+			tx.Rollback(ctx)
+			skipped++
+			continue
+		}
 
 		importedPhotos, err := updateListing(ctx, tx, existing, item)
 		if err != nil {
@@ -177,10 +196,10 @@ func importDetails(ctx context.Context, pool *pgxpool.Pool, items []detailItem) 
 func loadExisting(ctx context.Context, tx pgx.Tx, id string) (existingListing, bool, error) {
 	var l existingListing
 	err := tx.QueryRow(ctx, `
-SELECT id, title, area, city, price_usd, specs, details, tags, about, fb_url, photos, amenities
+SELECT id, title, area, city, price_usd, specs, details, tags, about, fb_url, photos, amenities, normalized ? 'apify_detail'
 FROM listings
 WHERE id = @id
-`, pgx.NamedArgs{"id": id}).Scan(&l.ID, &l.Title, &l.Area, &l.City, &l.PriceUSD, &l.Specs, &l.Details, &l.Tags, &l.About, &l.FBURL, &l.Photos, &l.Amenities)
+`, pgx.NamedArgs{"id": id}).Scan(&l.ID, &l.Title, &l.Area, &l.City, &l.PriceUSD, &l.Specs, &l.Details, &l.Tags, &l.About, &l.FBURL, &l.Photos, &l.Amenities, &l.HasDetail)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return existingListing{}, false, nil
 	}
@@ -193,7 +212,7 @@ WHERE id = @id
 func updateListing(ctx context.Context, tx pgx.Tx, existing existingListing, item detailItem) (int, error) {
 	sourceURL := firstNonEmpty(item.URL, existing.FBURL)
 	title := firstNonEmpty(cleanText(item.Title), existing.Title)
-	about := firstNonEmpty(cleanText(item.Description), existing.About)
+	about := firstNonEmpty(descriptionText(item.Description), existing.About)
 	area := firstNonEmpty(locationLabel(item.Location), existing.Area)
 	priceUSD := existing.PriceUSD
 	priceSource := ""
@@ -419,8 +438,14 @@ func priceUSDFromDetail(price map[string]any) (int, string, bool) {
 	if currency == "USD" {
 		return int(math.Round(amount)), "apify_detail_usd", true
 	}
+	if currency == "VND" && amount < 2_000_000 {
+		return 0, "", false
+	}
 	if currency == "VND" || amount > 10000 {
 		return int(math.Round(amount / vndPerUSD)), "apify_detail_vnd_heuristic_2026_06_30", true
+	}
+	if amount < 100 {
+		return 0, "", false
 	}
 	return int(math.Round(amount)), "apify_detail_unknown_currency", true
 }
@@ -707,6 +732,20 @@ func stringAtPath(value map[string]any, path ...string) string {
 func marshalText(value any) string {
 	payload, _ := json.Marshal(value)
 	return string(payload)
+}
+
+func descriptionText(value any) string {
+	switch v := value.(type) {
+	case string:
+		return cleanText(v)
+	case map[string]any:
+		for _, key := range []string{"text", "value", "body"} {
+			if text, ok := v[key].(string); ok && cleanText(text) != "" {
+				return cleanText(text)
+			}
+		}
+	}
+	return cleanText(marshalText(value))
 }
 
 func boolValue(value *bool) any {
