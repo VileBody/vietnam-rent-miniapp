@@ -446,7 +446,18 @@ ON CONFLICT (name) DO UPDATE SET
 			return err
 		}
 	}
-	return nil
+
+	_, err := db.Exec(ctx, `
+UPDATE scrape_sources
+SET enabled = false, updated_at = now()
+WHERE base_url IN (
+  'https://www.facebook.com/marketplace/danang/apartments-for-rent/',
+  'https://www.facebook.com/marketplace/danang/propertyrentals/',
+  'https://www.facebook.com/marketplace/nhatrang/propertyrentals/',
+  'https://www.facebook.com/marketplace/hanoi/propertyrentals/'
+);
+`)
+	return err
 }
 
 func seedListingsData(ctx context.Context, db *pgxpool.Pool) error {
