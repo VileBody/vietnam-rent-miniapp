@@ -3,6 +3,8 @@ const API_BASE = window.VIETNEST_API_BASE || (window.location.port === '5174' ? 
 const UI_THEME = window.VIETNEST_UI_THEME === 'warm' ? 'warm' : 'crisp';
 
 applyTheme();
+syncAppViewport();
+bindViewportSync();
 
 const STORAGE = {
   favorites: 'vietnest:reference:v1:favorites',
@@ -14,6 +16,37 @@ const STORAGE = {
 function applyTheme() {
   document.documentElement.dataset.theme = UI_THEME;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', UI_THEME === 'warm' ? '#f4ede2' : '#eceff5');
+}
+
+function appViewportHeight() {
+  const candidates = [
+    Number(tg?.viewportStableHeight) || 0,
+    Number(tg?.viewportHeight) || 0,
+    Number(window.visualViewport?.height) || 0,
+    Number(window.innerHeight) || 0,
+  ].filter((height) => height > 0);
+  return Math.max(320, Math.round(candidates[0] || 0));
+}
+
+function syncAppViewport() {
+  document.documentElement.style.setProperty('--app-height', `${appViewportHeight()}px`);
+}
+
+function bindViewportSync() {
+  let frame = 0;
+  const schedule = () => {
+    window.cancelAnimationFrame(frame);
+    frame = window.requestAnimationFrame(syncAppViewport);
+  };
+  window.addEventListener('resize', schedule, { passive: true });
+  window.addEventListener('orientationchange', schedule, { passive: true });
+  window.visualViewport?.addEventListener('resize', schedule, { passive: true });
+  window.visualViewport?.addEventListener('scroll', schedule, { passive: true });
+  try {
+    tg?.onEvent?.('viewportChanged', schedule);
+  } catch {
+    // ignore Telegram SDK errors outside Telegram.
+  }
 }
 
 const cityLabels = {
@@ -525,7 +558,19 @@ function advance(home) {
   saveState();
 }
 
-async function animateAndAdvance(direction, { save = false } = {}) {
+function isSessionPaywalled() {
+  return Boolean(state.session?.usage?.paywalled);
+}
+
+function trackSwipeActions(home, direction, save) {
+  void recordAction('view', home.id, { direction, save }).then((allowed) => {
+    if (allowed && save) {
+      void recordAction('favorite', home.id, { source: 'swipe' });
+    }
+  });
+}
+
+function animateAndAdvance(direction, { save = false } = {}) {
   if (state.animating) return;
   const home = currentHome();
   const card = $('deck').querySelector('.home-card[data-depth="0"]');
@@ -534,21 +579,21 @@ async function animateAndAdvance(direction, { save = false } = {}) {
     return;
   }
 
-  state.animating = true;
-  const allowed = await recordAction('view', home.id, { direction, save });
-  if (!allowed) {
-    state.animating = false;
+  if (isSessionPaywalled()) {
+    showPaywall();
     return;
   }
+
+  state.animating = true;
   const likeStamp = card.querySelector('.stamp.like');
   const skipStamp = card.querySelector('.stamp.skip');
   if (direction === 'right') likeStamp.style.opacity = '1';
   if (direction === 'left') skipStamp.style.opacity = '1';
   animateStackBehind();
+  trackSwipeActions(home, direction, save);
 
   if (save) {
     state.favorites.add(home.id);
-    void recordAction('favorite', home.id, { source: 'swipe' });
     flyToBadge(card);
     haptic('medium');
   } else {
@@ -596,8 +641,34 @@ function attachDrag(card) {
   let dragging = false;
   let pointerId = null;
 
+  function resetCard() {
+    card.classList.remove('dragging');
+    card.style.transition = 'transform .34s cubic-bezier(.22, 1, .36, 1), opacity .35s ease';
+    card.style.transform = cardPosition(0);
+    card.style.opacity = '1';
+    card.querySelector('.stamp.like').style.opacity = '0';
+    card.querySelector('.stamp.skip').style.opacity = '0';
+  }
+
+  function releasePointer() {
+    if (pointerId !== null && card.hasPointerCapture?.(pointerId)) {
+      card.releasePointerCapture(pointerId);
+    }
+    pointerId = null;
+  }
+
+  function cancelDrag(event) {
+    if (!dragging) return;
+    dragging = false;
+    releasePointer();
+    resetCard();
+    event?.preventDefault?.();
+  }
+
   card.addEventListener('pointerdown', (event) => {
     if (state.animating || event.target.closest('button')) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
     dragging = true;
     pointerId = event.pointerId;
     startX = event.clientX;
@@ -622,7 +693,7 @@ function attachDrag(card) {
     if (!dragging) return;
     dragging = false;
     card.classList.remove('dragging');
-    if (pointerId !== null && card.hasPointerCapture?.(pointerId)) card.releasePointerCapture(pointerId);
+    releasePointer();
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
       const home = currentHome();
       if (home?.photos?.length > 1) {
@@ -639,15 +710,17 @@ function attachDrag(card) {
     }
     if (dx > 105) return animateAndAdvance('right', { save: true });
     if (dx < -105) return animateAndAdvance('left');
-    card.style.transition = 'transform .34s cubic-bezier(.22, 1, .36, 1), opacity .35s ease';
-    card.style.transform = cardPosition(0);
-    card.querySelector('.stamp.like').style.opacity = '0';
-    card.querySelector('.stamp.skip').style.opacity = '0';
+    resetCard();
     event?.preventDefault();
   }
 
+  card.addEventListener('dragstart', (event) => event.preventDefault());
+  card.addEventListener('selectstart', (event) => event.preventDefault());
+  card.addEventListener('contextmenu', (event) => event.preventDefault());
   card.addEventListener('pointerup', finish);
-  card.addEventListener('pointercancel', finish);
+  card.addEventListener('pointercancel', cancelDrag);
+  card.addEventListener('lostpointercapture', cancelDrag);
+  window.addEventListener('blur', cancelDrag);
 }
 
 function setScreen(screen) {
@@ -999,6 +1072,10 @@ async function init() {
   try {
     tg?.ready?.();
     tg?.expand?.();
+    tg?.disableVerticalSwipes?.();
+    syncAppViewport();
+    window.setTimeout(syncAppViewport, 120);
+    window.setTimeout(syncAppViewport, 450);
   } catch {
     // ignore Telegram SDK errors outside Telegram.
   }
