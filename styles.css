@@ -18,6 +18,26 @@
   color-scheme: light;
 }
 
+html[data-theme="warm"] {
+  background: #eadfd2;
+}
+
+html[data-theme="warm"] {
+  --bg: #f4ede2;
+  --surface: #fffdf8;
+  --ink: #2b2620;
+  --sub: #938777;
+  --line: #e9ded0;
+  --primary: #3f51c9;
+  --primary-soft: #eceaff;
+  --accent: #ef8468;
+  --accent-soft: #fce6df;
+  --nav-bg: rgba(255, 253, 248, .86);
+  --shadow: 0 24px 50px -22px rgba(45, 35, 25, .42);
+  --soft-shadow: 0 8px 20px -12px rgba(45, 35, 25, .24);
+  --display: "Instrument Serif", Georgia, serif;
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -38,6 +58,12 @@ body {
   color: var(--ink);
   font-family: var(--body);
   -webkit-font-smoothing: antialiased;
+}
+
+html[data-theme="warm"] body {
+  background:
+    radial-gradient(850px 480px at 50% -110px, rgba(255, 253, 248, .86), transparent 64%),
+    var(--bg);
 }
 
 button,
@@ -136,6 +162,12 @@ svg {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+}
+
+html[data-theme="warm"] .topline h1,
+html[data-theme="warm"] .page-head h2,
+html[data-theme="warm"] .filter-head h2 {
+  font-weight: 400;
 }
 
 .topline p,

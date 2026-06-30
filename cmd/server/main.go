@@ -907,11 +907,28 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		path = "index.html"
 	}
 	switch path {
+	case "config.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		theme, err := json.Marshal(uiTheme())
+		if err != nil {
+			http.Error(w, "failed to render config", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, "window.VIETNEST_UI_THEME = %s;\n", theme)
 	case "index.html", "styles.css", "app.js":
 		http.ServeFile(w, r, path)
 	default:
 		http.NotFound(w, r)
 		return
+	}
+}
+
+func uiTheme() string {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("VIETNEST_UI_THEME"))) {
+	case "warm":
+		return "warm"
+	default:
+		return "crisp"
 	}
 }
 

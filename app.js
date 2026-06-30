@@ -1,11 +1,19 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const API_BASE = window.VIETNEST_API_BASE || (window.location.port === '5174' ? 'http://127.0.0.1:8080' : '');
+const UI_THEME = window.VIETNEST_UI_THEME === 'warm' ? 'warm' : 'crisp';
+
+applyTheme();
 
 const STORAGE = {
   favorites: 'vietnest:reference:v1:favorites',
   seen: 'vietnest:reference:v1:seen',
   filters: 'vietnest:reference:v1:filters',
 };
+
+function applyTheme() {
+  document.documentElement.dataset.theme = UI_THEME;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', UI_THEME === 'warm' ? '#f4ede2' : '#eceff5');
+}
 
 const cityLabels = {
   all: 'All Vietnam',

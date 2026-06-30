@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/name: vietnest
         app.kubernetes.io/part-of: vietnam-rent-miniapp
       annotations:
-        vietnest.teamgenius.ru/rollout-at: "2026-06-30T14:34:18Z"
+        vietnest.teamgenius.ru/rollout-at: "2026-06-30T16:58:42Z"
     spec:
       imagePullSecrets:
         - name: ghcr-pull
@@ -31,6 +31,8 @@ spec:
           env:
             - name: PORT
               value: "8080"
+            - name: VIETNEST_UI_THEME
+              value: "crisp"
           envFrom:
             - secretRef:
                 name: vietnest-app-env
