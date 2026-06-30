@@ -453,8 +453,16 @@ SET enabled = false, updated_at = now()
 WHERE base_url IN (
   'https://www.facebook.com/marketplace/danang/apartments-for-rent/',
   'https://www.facebook.com/marketplace/danang/propertyrentals/',
+  'https://www.facebook.com/marketplace/hochiminhcity/apartments-for-rent/',
   'https://www.facebook.com/marketplace/nhatrang/propertyrentals/',
   'https://www.facebook.com/marketplace/hanoi/propertyrentals/'
+)
+OR name IN (
+  'Da Nang apartments fresh',
+  'Da Nang villas fresh',
+  'Hanoi rentals fresh',
+  'Ho Chi Minh City apartments',
+  'Nha Trang rentals fresh'
 );
 `)
 	return err
