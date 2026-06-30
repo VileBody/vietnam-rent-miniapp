@@ -740,6 +740,7 @@ function updatePreferenceUI() {
   $('tripSummary').textContent = compactPrefsSummary();
   $('tripSubline').textContent = tripSubline();
   $('planSummary').textContent = tripSubline();
+  $('planMeta').textContent = compactPrefsSummary();
   $('brandSubtitle').textContent = state.prefs.destination === 'all' ? 'лучшие варианты по Вьетнаму' : `${destinations[state.prefs.destination]} для поездки`;
   updateOnboardingUI();
 }
@@ -771,7 +772,8 @@ function updateOnboardingUI() {
     });
   });
   $('budgetRange').value = String(state.prefs.budget);
-  $('budgetValue').textContent = `до $${Number(state.prefs.budget).toLocaleString('en-US')}`;
+  $('budgetValue').textContent = `$500 — $${Number(state.prefs.budget).toLocaleString('en-US')}`;
+  $('filterResultCount').textContent = String(candidateHomes().length);
 }
 
 function openOnboarding() {
@@ -845,7 +847,7 @@ function bindOnboarding() {
 
   $('budgetRange').addEventListener('input', (event) => {
     state.prefs.budget = Number(event.target.value);
-    $('budgetValue').textContent = `до $${Number(state.prefs.budget).toLocaleString('en-US')}`;
+    updateOnboardingUI();
   });
   $('applyPrefs').addEventListener('click', applyPrefsFromOnboarding);
   $('resetPrefs').addEventListener('click', resetPrefs);
@@ -944,6 +946,7 @@ function bind() {
   $('favShortcut').addEventListener('click', () => setScreen('favorites'));
   $('editPrefsBtn').addEventListener('click', openOnboarding);
   $('openOnboardingFromPlan').addEventListener('click', openOnboarding);
+  $('addSearchBtn').addEventListener('click', openOnboarding);
   $('closeSheet').addEventListener('click', () => closeDialog($('detailsSheet')));
   $('sheetSecondary').addEventListener('click', () => closeDialog($('detailsSheet')));
   $('cityBtn').addEventListener('click', () => openDialog($('citySheet')));

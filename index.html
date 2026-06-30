@@ -98,24 +98,28 @@
       </section>
 
       <section class="screen plan-screen" id="planScreen">
-        <div class="section-title">
+        <div class="section-title searches-title">
           <div>
             <span>saved searches</span>
             <h2>Мои поиски</h2>
-            <p>Настройки поездки, свежие варианты и прогресс по просмотрам в одном месте.</p>
+            <p>Сохраняй разные сценарии: пляж, workation, семейная база или вилла на пару месяцев.</p>
           </div>
-          <button class="text-btn" id="openOnboardingFromPlan" type="button">Настроить</button>
+          <button class="add-search-btn" id="addSearchBtn" type="button" aria-label="Добавить поиск">+</button>
         </div>
 
-        <div class="plan-card">
-          <div class="plan-orb" aria-hidden="true"></div>
-          <strong id="planSummary">пара · 1+ спальня · просмотренные ниже</strong>
-          <p>Свайп — основной experience для туристической аренды: быстро чувствуешь район, вайб и компромиссы.</p>
-          <div class="stat-grid">
+        <div class="searches-stack">
+          <button class="search-card active-search" id="openOnboardingFromPlan" type="button">
+            <span>Текущий поиск</span>
+            <strong id="planSummary">пара · 1+ спальня · просмотренные ниже</strong>
+            <small id="planMeta">Вьетнам · до $1,200</small>
+          </button>
+
+          <div class="search-stat-strip">
             <div><b id="statFresh">0</b><span>новых</span></div>
             <div><b id="statSeen">0</b><span>свайпов</span></div>
-            <div><b id="statSaved">0</b><span>сохранено</span></div>
+            <div><b id="statSaved">0</b><span>в шортлисте</span></div>
           </div>
+
           <button class="secondary wide" id="resetSeenBtn" type="button">Вернуть просмотренные наверх</button>
         </div>
       </section>
@@ -193,37 +197,49 @@
     </div>
   </dialog>
 
-  <dialog class="bottom-sheet onboarding-sheet" id="onboardingSheet">
-    <div class="sheet-head">
-      <div>
-        <span>onboarding</span>
-        <strong>Настроим поездку</strong>
-      </div>
-      <button class="icon-btn flat" id="closeOnboarding" type="button" aria-label="Закрыть">×</button>
+  <dialog class="bottom-sheet onboarding-sheet filter-sheet" id="onboardingSheet">
+    <div class="filter-head">
+      <strong>Фильтры</strong>
+      <button class="filter-reset" id="resetPrefs" type="button">Сбросить</button>
+      <button class="filter-close" id="closeOnboarding" type="button" aria-label="Закрыть">×</button>
     </div>
 
-    <div class="sheet-body onboarding-body">
-      <section class="onboarding-hero">
-        <span>не список и не карта</span>
-        <h1>Выбираем жильё как travel experience.</h1>
-        <p>Ответь на параметры один раз — дальше просто свайпай. Новые варианты будут выше, просмотренные не исчезнут, а уйдут ниже.</p>
-      </section>
-
-      <fieldset data-choice="destination" data-mode="single">
-        <legend>Где базироваться?</legend>
-        <div class="choice-grid two">
+    <div class="sheet-body onboarding-body filter-body">
+      <fieldset class="filter-block" data-choice="destination" data-mode="single">
+        <legend>Район</legend>
+        <div class="choice-grid district-grid">
+          <button class="choice-pill" data-value="all" type="button">Весь Вьетнам</button>
           <button class="choice-pill" data-value="danang" type="button">Da Nang</button>
           <button class="choice-pill" data-value="nhatrang" type="button">Nha Trang</button>
           <button class="choice-pill" data-value="hoian" type="button">Hoi An</button>
-          <button class="choice-pill" data-value="hcmc" type="button">Ho Chi Minh</button>
+          <button class="choice-pill" data-value="hcmc" type="button">HCMC</button>
           <button class="choice-pill" data-value="phuquoc" type="button">Phu Quoc</button>
-          <button class="choice-pill" data-value="all" type="button">Весь Вьетнам</button>
         </div>
       </fieldset>
 
-      <fieldset data-choice="traveler" data-mode="single">
-        <legend>Кто едет?</legend>
-        <div class="choice-grid two">
+      <fieldset class="filter-block">
+        <div class="range-head">
+          <legend>Цена за месяц</legend>
+          <output id="budgetValue">$500 — $1,200</output>
+        </div>
+        <div class="range-shell">
+          <input class="budget-range" id="budgetRange" type="range" min="500" max="3500" step="50" value="1200" />
+        </div>
+      </fieldset>
+
+      <fieldset class="filter-block" data-choice="bedrooms" data-mode="single">
+        <legend>Комнаты</legend>
+        <div class="room-segment">
+          <button class="choice-pill" data-value="studio" type="button">Студия</button>
+          <button class="choice-pill" data-value="1" type="button">1</button>
+          <button class="choice-pill" data-value="2" type="button">2</button>
+          <button class="choice-pill" data-value="3" type="button">3+</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="filter-block" data-choice="traveler" data-mode="single">
+        <legend>Формат</legend>
+        <div class="room-segment">
           <button class="choice-pill" data-value="solo" type="button">Соло</button>
           <button class="choice-pill" data-value="couple" type="button">Пара</button>
           <button class="choice-pill" data-value="family" type="button">Семья</button>
@@ -231,40 +247,21 @@
         </div>
       </fieldset>
 
-      <fieldset data-choice="vibes" data-mode="multi">
-        <legend>Что важно в поездке?</legend>
-        <div class="need-grid">
-          <button class="need-pill" data-value="beach" type="button">Море рядом</button>
-          <button class="need-pill" data-value="workation" type="button">Рабочее место</button>
-          <button class="need-pill" data-value="calm" type="button">Тихий район</button>
-          <button class="need-pill" data-value="villa" type="button">Вилла/дом</button>
-          <button class="need-pill" data-value="pool" type="button">Бассейн</button>
-          <button class="need-pill" data-value="pet" type="button">С животными</button>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <div class="range-head">
-          <legend>Бюджет в месяц</legend>
-          <output id="budgetValue">до $1,200</output>
-        </div>
-        <input class="budget-range" id="budgetRange" type="range" min="500" max="3500" step="50" value="1200" />
-      </fieldset>
-
-      <fieldset data-choice="bedrooms" data-mode="single">
-        <legend>Спальни</legend>
-        <div class="choice-grid two">
-          <button class="choice-pill" data-value="studio" type="button">Студия</button>
-          <button class="choice-pill" data-value="1" type="button">1+</button>
-          <button class="choice-pill" data-value="2" type="button">2+</button>
-          <button class="choice-pill" data-value="3" type="button">3+</button>
+      <fieldset class="filter-block" data-choice="vibes" data-mode="multi">
+        <legend>Удобства</legend>
+        <div class="amenity-list">
+          <button class="amenity-toggle need-pill" data-value="pool" type="button"><span class="amenity-icon">~</span><b>Бассейн</b><i></i></button>
+          <button class="amenity-toggle need-pill" data-value="workation" type="button"><span class="amenity-icon">▣</span><b>Рабочее место</b><i></i></button>
+          <button class="amenity-toggle need-pill" data-value="beach" type="button"><span class="amenity-icon">≈</span><b>Море рядом</b><i></i></button>
+          <button class="amenity-toggle need-pill" data-value="calm" type="button"><span class="amenity-icon">◌</span><b>Тихий район</b><i></i></button>
+          <button class="amenity-toggle need-pill" data-value="villa" type="button"><span class="amenity-icon">⌂</span><b>Вилла/дом</b><i></i></button>
+          <button class="amenity-toggle need-pill" data-value="pet" type="button"><span class="amenity-icon">♡</span><b>Pet OK</b><i></i></button>
         </div>
       </fieldset>
     </div>
 
-    <div class="sheet-actions">
-      <button class="secondary" id="resetPrefs" type="button">Сбросить</button>
-      <button class="primary" id="applyPrefs" type="button">Начать свайп</button>
+    <div class="filter-actions">
+      <button class="primary filter-submit" id="applyPrefs" type="button">Показать <span id="filterResultCount">0</span> вариантов</button>
     </div>
   </dialog>
 
