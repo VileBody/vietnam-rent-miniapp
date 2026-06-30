@@ -337,11 +337,13 @@ function displaySpecs(home) {
 function cardMarkup(home, depth) {
   const selectedPhoto = photoIndex(home);
   const photo = home.photos[selectedPhoto] || home.photos[0];
+  const progressPercent = home.photos.length > 1 ? ((selectedPhoto + 1) / home.photos.length) * 100 : 0;
   const specs = displaySpecs(home);
   return `
     <div class="photo">
       <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
       <div class="shade"></div>
+      ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="Photo ${selectedPhoto + 1} of ${home.photos.length}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
     <div class="card-chips">
       <div class="chip-line">
@@ -355,7 +357,7 @@ function cardMarkup(home, depth) {
     <div class="card-copy">
       <div class="card-price"><strong>${escapeHTML(money(home.price))}</strong><span>/month</span></div>
       <h2>${escapeHTML(home.area)}</h2>
-      <p>${home.photos.length > 1 ? `<span class="photo-progress">${selectedPhoto + 1}/${home.photos.length}</span> ` : ''}${escapeHTML(home.title)}</p>
+      <p>${escapeHTML(home.title)}</p>
       <div class="card-specs">
         ${specs.map((spec, index) => `<span>${specIcon(index)}${escapeHTML(spec)}</span>`).join('')}
       </div>
@@ -478,9 +480,14 @@ function refreshTopCardPhoto(home) {
   if (!card) return;
   const selectedPhoto = photoIndex(home);
   const image = card.querySelector('.photo img');
-  const progress = card.querySelector('.photo-progress');
+  const progress = card.querySelector('.photo-rail');
+  const progressFill = card.querySelector('.photo-rail span');
   if (image) image.src = home.photos[selectedPhoto] || home.photos[0];
-  if (progress) progress.textContent = `${selectedPhoto + 1}/${home.photos.length}`;
+  if (progress) {
+    progress.setAttribute('aria-label', `Photo ${selectedPhoto + 1} of ${home.photos.length}`);
+    progress.setAttribute('aria-valuenow', String(selectedPhoto + 1));
+  }
+  if (progressFill) progressFill.style.width = `${((selectedPhoto + 1) / home.photos.length) * 100}%`;
 }
 
 function attachDrag(card) {
