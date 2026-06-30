@@ -32,7 +32,7 @@ spec:
             - name: PORT
               value: "8080"
             - name: VIETNEST_UI_THEME
-              value: "crisp"
+              value: "warm"
           envFrom:
             - secretRef:
                 name: vietnest-app-env
