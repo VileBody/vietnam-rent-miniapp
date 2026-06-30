@@ -8,6 +8,7 @@ const STORAGE = {
   favorites: 'vietnest:reference:v1:favorites',
   seen: 'vietnest:reference:v1:seen',
   filters: 'vietnest:reference:v1:filters',
+  clientId: 'vietnest:reference:v1:clientId',
 };
 
 function applyTheme() {
@@ -90,6 +91,8 @@ const state = {
   viewerHomeId: null,
   viewerPhotoIndex: 0,
   photoIndexes: {},
+  session: null,
+  paywallOpen: false,
   queue: [],
   history: [],
   animating: false,
@@ -112,6 +115,95 @@ function writeJSON(key, value) {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // LocalStorage can be unavailable in embedded contexts.
+  }
+}
+
+function clientId() {
+  let id = '';
+  try {
+    id = window.localStorage.getItem(STORAGE.clientId) || '';
+    if (!id) {
+      id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+      window.localStorage.setItem(STORAGE.clientId, id);
+    }
+  } catch {
+    id = 'volatile-browser-client';
+  }
+  return id;
+}
+
+function authHeaders(extra = {}) {
+  const headers = {
+    'X-Vietnest-Client-Id': clientId(),
+    ...extra,
+  };
+  if (tg?.initData) headers['X-Telegram-Init-Data'] = tg.initData;
+  return headers;
+}
+
+async function api(path, options = {}) {
+  const headers = authHeaders(options.body ? { 'Content-Type': 'application/json' } : {});
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const error = new Error(payload?.error || `API returned ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+function applySession(session) {
+  if (!session) return;
+  state.session = session;
+  const usage = session.usage || {};
+  const remaining = Math.max(0, Number(usage.remaining ?? usage.freeLimit ?? 30));
+  $('paywallUsage').textContent = `${usage.viewed || 0}/${usage.freeLimit || window.VIETNEST_FREE_VIEW_LIMIT || 30}`;
+  $('paywallRemaining').textContent = String(remaining);
+  if (usage.paywalled && state.screen === 'discover') showPaywall();
+}
+
+async function loadSession() {
+  try {
+    applySession(await api('/api/session'));
+  } catch (error) {
+    console.warn('Session unavailable:', error);
+  }
+}
+
+async function recordAction(action, listingId = '', metadata = {}) {
+  try {
+    const session = await api('/api/events', {
+      method: 'POST',
+      body: JSON.stringify({ action, listingId, metadata }),
+    });
+    applySession(session);
+    return true;
+  } catch (error) {
+    if (error.status === 402) {
+      applySession(error.payload?.session);
+      showPaywall();
+      return false;
+    }
+    console.warn('Action tracking failed:', error);
+    return true;
+  }
+}
+
+async function recordSearch() {
+  try {
+    await api('/api/searches', {
+      method: 'POST',
+      body: JSON.stringify({ filters: state.filters, resultsCount: filteredHomes().length }),
+    });
+  } catch (error) {
+    console.warn('Search tracking failed:', error);
   }
 }
 
@@ -433,7 +525,7 @@ function advance(home) {
   saveState();
 }
 
-function animateAndAdvance(direction, { save = false } = {}) {
+async function animateAndAdvance(direction, { save = false } = {}) {
   if (state.animating) return;
   const home = currentHome();
   const card = $('deck').querySelector('.home-card[data-depth="0"]');
@@ -443,6 +535,11 @@ function animateAndAdvance(direction, { save = false } = {}) {
   }
 
   state.animating = true;
+  const allowed = await recordAction('view', home.id, { direction, save });
+  if (!allowed) {
+    state.animating = false;
+    return;
+  }
   const likeStamp = card.querySelector('.stamp.like');
   const skipStamp = card.querySelector('.stamp.skip');
   if (direction === 'right') likeStamp.style.opacity = '1';
@@ -451,6 +548,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
 
   if (save) {
     state.favorites.add(home.id);
+    void recordAction('favorite', home.id, { source: 'swipe' });
     flyToBadge(card);
     haptic('medium');
   } else {
@@ -646,6 +744,7 @@ function detailSpecItems(home) {
 function openDetail(home = currentHome()) {
   if (!home) return;
   state.activeDetailId = home.id;
+  void recordAction('open_detail', home.id, { screen: state.screen });
   state.detailPhotoIndex = photoIndex(home);
   renderDetailPhoto(home);
   $('detailPrice').textContent = money(home.price);
@@ -715,20 +814,42 @@ function closePhotoViewer() {
   $('photoViewer').setAttribute('aria-hidden', 'true');
 }
 
+function showPaywall() {
+  state.paywallOpen = true;
+  const supportUrl = state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL || 'https://t.me/teamgenius_support';
+  $('paywallSubscribeBtn').dataset.url = supportUrl;
+  $('paywallOverlay').classList.add('is-open');
+  $('paywallOverlay').setAttribute('aria-hidden', 'false');
+}
+
+function closePaywall() {
+  state.paywallOpen = false;
+  $('paywallOverlay').classList.remove('is-open');
+  $('paywallOverlay').setAttribute('aria-hidden', 'true');
+}
+
+function openSubscriptionChat() {
+  const url = $('paywallSubscribeBtn').dataset.url || state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL;
+  void recordAction('paywall_click', '', { viewed: state.session?.usage?.viewed || 0 });
+  openUrl(url);
+}
+
 function closeDetail() {
   $('detailOverlay').classList.remove('is-open');
   $('detailOverlay').setAttribute('aria-hidden', 'true');
   closePhotoViewer();
 }
 
-function saveDetail() {
+async function saveDetail() {
   const home = activeDetail();
   if (!home) return;
   if (state.favorites.has(home.id)) {
+    void recordAction('open_facebook', home.id, { source: 'detail_primary' });
     openUrl(home.fbUrl);
     return;
   }
   state.favorites.add(home.id);
+  void recordAction('favorite', home.id, { source: 'detail' });
   saveState();
   renderCounters();
   $('detailPrimaryBtn').textContent = 'Open original listing';
@@ -791,6 +912,7 @@ function bindFilters() {
 
   $('applyFiltersBtn').addEventListener('click', () => {
     saveState();
+    void recordSearch();
     setScreen('discover');
     toast('Filters applied');
   });
@@ -811,6 +933,7 @@ function bind() {
     const remove = event.target.closest('button[data-remove]');
     if (remove) {
       state.favorites.delete(remove.dataset.remove);
+      void recordAction('unfavorite', remove.dataset.remove, { source: 'shortlist' });
       saveState();
       render();
       return;
@@ -834,8 +957,13 @@ function bind() {
   $('detailPrimaryBtn').addEventListener('click', saveDetail);
   $('openFbBtn').addEventListener('click', () => {
     const home = activeDetail();
-    if (home) openUrl(home.fbUrl);
+    if (home) {
+      void recordAction('open_facebook', home.id, { source: 'detail_secondary' });
+      openUrl(home.fbUrl);
+    }
   });
+  $('paywallCloseBtn').addEventListener('click', closePaywall);
+  $('paywallSubscribeBtn').addEventListener('click', openSubscriptionChat);
   $('viewerCloseBtn').addEventListener('click', closePhotoViewer);
   $('viewerPrevBtn').addEventListener('click', () => stepPhotoViewer(-1));
   $('viewerNextBtn').addEventListener('click', () => stepPhotoViewer(1));
@@ -849,6 +977,8 @@ function bind() {
       if (event.key === 'Escape') closePhotoViewer();
       if (event.key === 'ArrowLeft') stepPhotoViewer(-1);
       if (event.key === 'ArrowRight') stepPhotoViewer(1);
+    } else if ($('paywallOverlay').classList.contains('is-open') && event.key === 'Escape') {
+      closePaywall();
     } else if ($('detailOverlay').classList.contains('is-open') && event.key === 'Escape') {
       closeDetail();
     }
@@ -874,6 +1004,7 @@ async function init() {
   }
   bind();
   renderFilters();
+  await loadSession();
   await loadHomes();
   resetQueue();
   render();

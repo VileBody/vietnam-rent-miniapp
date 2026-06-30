@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
@@ -9,7 +10,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +74,54 @@ type Server struct {
 	db *pgxpool.Pool
 }
 
+type AppUser struct {
+	ID             int64  `json:"id"`
+	TelegramUserID *int64 `json:"telegramUserId,omitempty"`
+	ClientID       string `json:"clientId,omitempty"`
+	Username       string `json:"username,omitempty"`
+	FirstName      string `json:"firstName,omitempty"`
+	LastName       string `json:"lastName,omitempty"`
+	LanguageCode   string `json:"languageCode,omitempty"`
+	IsSubscribed   bool   `json:"isSubscribed"`
+}
+
+type TelegramInitUser struct {
+	ID           int64  `json:"id"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Username     string `json:"username"`
+	LanguageCode string `json:"language_code"`
+	PhotoURL     string `json:"photo_url"`
+}
+
+type UserSession struct {
+	User         AppUser          `json:"user"`
+	Usage        PaywallUsage     `json:"usage"`
+	Subscription SubscriptionInfo `json:"subscription"`
+}
+
+type PaywallUsage struct {
+	Viewed    int  `json:"viewed"`
+	FreeLimit int  `json:"freeLimit"`
+	Remaining int  `json:"remaining"`
+	Paywalled bool `json:"paywalled"`
+}
+
+type SubscriptionInfo struct {
+	SupportURL string `json:"supportUrl"`
+}
+
+type EventRequest struct {
+	Action    string         `json:"action"`
+	ListingID string         `json:"listingId"`
+	Metadata  map[string]any `json:"metadata"`
+}
+
+type SearchRequest struct {
+	Filters      map[string]any `json:"filters"`
+	ResultsCount int            `json:"resultsCount"`
+}
+
 func main() {
 	ctx := context.Background()
 	databaseURL := getenv("DATABASE_URL", "postgres://vietnest:vietnest@127.0.0.1:5433/mock-marketplace?sslmode=disable")
@@ -95,6 +146,9 @@ func main() {
 	srv := &Server{db: db}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", srv.handleHealth)
+	mux.HandleFunc("GET /api/session", srv.handleSession)
+	mux.HandleFunc("POST /api/events", srv.handleEvent)
+	mux.HandleFunc("POST /api/searches", srv.handleSearch)
 	mux.HandleFunc("GET /api/listings", srv.handleListings)
 	mux.HandleFunc("GET /api/listings/{id}", srv.handleListing)
 	mux.HandleFunc("GET /api/scrape-sources", srv.handleScrapeSources)
@@ -310,18 +364,61 @@ CREATE TABLE IF NOT EXISTS listing_availability_checks (
 CREATE TABLE IF NOT EXISTS app_users (
   id bigserial PRIMARY KEY,
   telegram_user_id bigint UNIQUE,
+  client_id text,
   username text,
   first_name text,
+  last_name text,
   language_code text,
+  photo_url text,
+  is_subscribed boolean NOT NULL DEFAULT false,
+  subscription_until timestamptz,
+  subscription_note text,
+  subscription_source text,
+  last_auth_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   last_seen_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS last_name text;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS photo_url text;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS is_subscribed boolean NOT NULL DEFAULT false;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_until timestamptz;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_note text;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_source text;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS last_auth_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS user_favorites (
   user_id bigint NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
   listing_id text NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, listing_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_listing_views (
+  user_id bigint NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  listing_id text NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  first_viewed_at timestamptz NOT NULL DEFAULT now(),
+  last_viewed_at timestamptz NOT NULL DEFAULT now(),
+  view_count int NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, listing_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_listing_actions (
+  id bigserial PRIMARY KEY,
+  user_id bigint NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  listing_id text REFERENCES listings(id) ON DELETE SET NULL,
+  action text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_searches (
+  id bigserial PRIMARY KEY,
+  user_id bigint NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  filters jsonb NOT NULL DEFAULT '{}',
+  results_count int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS listings_city_idx ON listings (city);
@@ -347,6 +444,11 @@ CREATE INDEX IF NOT EXISTS photos_listing_idx ON listing_photos (listing_id, pos
 CREATE INDEX IF NOT EXISTS contacts_listing_idx ON listing_contacts (listing_id);
 CREATE INDEX IF NOT EXISTS price_history_listing_idx ON listing_price_history (listing_id, observed_at DESC);
 CREATE INDEX IF NOT EXISTS availability_listing_idx ON listing_availability_checks (listing_id, checked_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS app_users_client_unique_all_idx ON app_users (client_id);
+CREATE INDEX IF NOT EXISTS user_actions_user_idx ON user_listing_actions (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS user_actions_listing_idx ON user_listing_actions (listing_id, action, created_at DESC);
+CREATE INDEX IF NOT EXISTS user_views_user_idx ON user_listing_views (user_id, last_viewed_at DESC);
+CREATE INDEX IF NOT EXISTS user_searches_user_idx ON user_searches (user_id, created_at DESC);
 `)
 	return err
 }
@@ -665,6 +767,215 @@ func rawSeedPayload(listing Listing) ([]byte, string, error) {
 	return raw, fmt.Sprintf("%x", sum[:]), nil
 }
 
+func freeViewLimit() int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("FREE_VIEW_LIMIT")))
+	if err != nil || value <= 0 {
+		return 30
+	}
+	return value
+}
+
+func subscriptionSupportURL() string {
+	return getenv("TELEGRAM_SUBSCRIPTION_URL", "https://t.me/teamgenius_support")
+}
+
+func (s *Server) requireUser(ctx context.Context, r *http.Request) (AppUser, error) {
+	if initData := strings.TrimSpace(r.Header.Get("X-Telegram-Init-Data")); initData != "" && strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")) != "" {
+		tgUser, err := validateTelegramInitData(initData)
+		if err != nil {
+			return AppUser{}, err
+		}
+		return s.upsertTelegramUser(ctx, tgUser)
+	}
+
+	clientID := strings.TrimSpace(r.Header.Get("X-Vietnest-Client-Id"))
+	if clientID == "" {
+		return AppUser{}, errors.New("missing client id")
+	}
+	if len(clientID) > 120 {
+		clientID = clientID[:120]
+	}
+	return s.upsertClientUser(ctx, clientID)
+}
+
+func validateTelegramInitData(initData string) (TelegramInitUser, error) {
+	botToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if botToken == "" {
+		return TelegramInitUser{}, errors.New("TELEGRAM_BOT_TOKEN is not configured")
+	}
+
+	values, err := url.ParseQuery(initData)
+	if err != nil {
+		return TelegramInitUser{}, errors.New("invalid telegram init data")
+	}
+	receivedHash := values.Get("hash")
+	if receivedHash == "" {
+		return TelegramInitUser{}, errors.New("telegram init data hash is missing")
+	}
+
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		if key != "hash" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+values.Get(key))
+	}
+
+	secretMac := hmac.New(sha256.New, []byte("WebAppData"))
+	secretMac.Write([]byte(botToken))
+	secret := secretMac.Sum(nil)
+
+	hashMac := hmac.New(sha256.New, secret)
+	hashMac.Write([]byte(strings.Join(parts, "\n")))
+	expectedHash := fmt.Sprintf("%x", hashMac.Sum(nil))
+	if !hmac.Equal([]byte(expectedHash), []byte(receivedHash)) {
+		return TelegramInitUser{}, errors.New("telegram init data hash is invalid")
+	}
+
+	var user TelegramInitUser
+	if rawUser := values.Get("user"); rawUser != "" {
+		if err := json.Unmarshal([]byte(rawUser), &user); err != nil {
+			return TelegramInitUser{}, errors.New("telegram user payload is invalid")
+		}
+	}
+	if user.ID == 0 {
+		return TelegramInitUser{}, errors.New("telegram user id is missing")
+	}
+	return user, nil
+}
+
+func (s *Server) upsertTelegramUser(ctx context.Context, tgUser TelegramInitUser) (AppUser, error) {
+	row := s.db.QueryRow(ctx, `
+INSERT INTO app_users (
+  telegram_user_id, username, first_name, last_name, language_code, photo_url,
+  last_auth_at, last_seen_at
+) VALUES (
+  @telegram_user_id, @username, @first_name, @last_name, @language_code, @photo_url,
+  now(), now()
+)
+ON CONFLICT (telegram_user_id) DO UPDATE SET
+  username = excluded.username,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  language_code = excluded.language_code,
+  photo_url = excluded.photo_url,
+  last_auth_at = now(),
+  last_seen_at = now()
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
+`, pgx.NamedArgs{
+		"telegram_user_id": tgUser.ID,
+		"username":         nullString(tgUser.Username),
+		"first_name":       nullString(tgUser.FirstName),
+		"last_name":        nullString(tgUser.LastName),
+		"language_code":    nullString(tgUser.LanguageCode),
+		"photo_url":        nullString(tgUser.PhotoURL),
+	})
+	return scanAppUser(row)
+}
+
+func (s *Server) upsertClientUser(ctx context.Context, clientID string) (AppUser, error) {
+	row := s.db.QueryRow(ctx, `
+INSERT INTO app_users (client_id, first_name, last_auth_at, last_seen_at)
+VALUES (@client_id, 'Guest', now(), now())
+ON CONFLICT (client_id) DO UPDATE SET
+  last_auth_at = now(),
+  last_seen_at = now()
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
+`, pgx.NamedArgs{"client_id": clientID})
+	return scanAppUser(row)
+}
+
+func scanAppUser(row pgx.Row) (AppUser, error) {
+	var user AppUser
+	var telegramID sql.NullInt64
+	err := row.Scan(&user.ID, &telegramID, &user.ClientID, &user.Username, &user.FirstName, &user.LastName, &user.LanguageCode, &user.IsSubscribed)
+	if telegramID.Valid {
+		user.TelegramUserID = &telegramID.Int64
+	}
+	return user, err
+}
+
+func (s *Server) sessionForUser(ctx context.Context, user AppUser) (UserSession, error) {
+	viewed, err := s.viewedCount(ctx, user.ID)
+	if err != nil {
+		return UserSession{}, err
+	}
+	limit := freeViewLimit()
+	remaining := limit - viewed
+	if remaining < 0 {
+		remaining = 0
+	}
+	return UserSession{
+		User: user,
+		Usage: PaywallUsage{
+			Viewed:    viewed,
+			FreeLimit: limit,
+			Remaining: remaining,
+			Paywalled: !user.IsSubscribed && viewed >= limit,
+		},
+		Subscription: SubscriptionInfo{SupportURL: subscriptionSupportURL()},
+	}, nil
+}
+
+func (s *Server) viewedCount(ctx context.Context, userID int64) (int, error) {
+	var count int
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM user_listing_views WHERE user_id = @user_id`, pgx.NamedArgs{"user_id": userID}).Scan(&count)
+	return count, err
+}
+
+func (s *Server) recordView(ctx context.Context, user AppUser, listingID string) (bool, error) {
+	var alreadyViewed bool
+	if err := s.db.QueryRow(ctx, `
+SELECT EXISTS (SELECT 1 FROM user_listing_views WHERE user_id = @user_id AND listing_id = @listing_id);
+`, pgx.NamedArgs{"user_id": user.ID, "listing_id": listingID}).Scan(&alreadyViewed); err != nil {
+		return false, err
+	}
+	if !alreadyViewed && !user.IsSubscribed {
+		count, err := s.viewedCount(ctx, user.ID)
+		if err != nil {
+			return false, err
+		}
+		if count >= freeViewLimit() {
+			return false, nil
+		}
+	}
+	_, err := s.db.Exec(ctx, `
+INSERT INTO user_listing_views (user_id, listing_id)
+VALUES (@user_id, @listing_id)
+ON CONFLICT (user_id, listing_id) DO UPDATE SET
+  last_viewed_at = now(),
+  view_count = user_listing_views.view_count + 1;
+`, pgx.NamedArgs{"user_id": user.ID, "listing_id": listingID})
+	return err == nil, err
+}
+
+func (s *Server) recordAction(ctx context.Context, userID int64, event EventRequest) error {
+	metadata, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(ctx, `
+INSERT INTO user_listing_actions (user_id, listing_id, action, metadata)
+VALUES (@user_id, nullif(@listing_id, ''), @action, @metadata::jsonb);
+`, pgx.NamedArgs{"user_id": userID, "listing_id": event.ListingID, "action": event.Action, "metadata": string(metadata)})
+	return err
+}
+
+func nullString(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return &value
+}
+
+func writeAuthError(w http.ResponseWriter, err error) {
+	writeJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
@@ -673,6 +984,128 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	session, err := s.sessionForUser(ctx, user)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
+func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
+	var payload EventRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid event payload"})
+		return
+	}
+	payload.Action = strings.TrimSpace(strings.ToLower(payload.Action))
+	payload.ListingID = strings.TrimSpace(payload.ListingID)
+	if payload.Action == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "action is required"})
+		return
+	}
+	if payload.Metadata == nil {
+		payload.Metadata = map[string]any{}
+	}
+
+	if payload.Action == "view" && payload.ListingID != "" {
+		allowed, err := s.recordView(ctx, user, payload.ListingID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if !allowed {
+			session, err := s.sessionForUser(ctx, user)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusPaymentRequired, map[string]any{"error": "view limit reached", "session": session})
+			return
+		}
+	}
+
+	if err := s.recordAction(ctx, user.ID, payload); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	switch payload.Action {
+	case "favorite":
+		if payload.ListingID != "" {
+			_, _ = s.db.Exec(ctx, `
+INSERT INTO user_favorites (user_id, listing_id)
+VALUES (@user_id, @listing_id)
+ON CONFLICT DO NOTHING;
+`, pgx.NamedArgs{"user_id": user.ID, "listing_id": payload.ListingID})
+		}
+	case "unfavorite":
+		if payload.ListingID != "" {
+			_, _ = s.db.Exec(ctx, `DELETE FROM user_favorites WHERE user_id = @user_id AND listing_id = @listing_id`, pgx.NamedArgs{"user_id": user.ID, "listing_id": payload.ListingID})
+		}
+	}
+
+	session, err := s.sessionForUser(ctx, user)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
+	var payload SearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid search payload"})
+		return
+	}
+	if payload.Filters == nil {
+		payload.Filters = map[string]any{}
+	}
+	filters, err := json.Marshal(payload.Filters)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "filters must be json"})
+		return
+	}
+	_, err = s.db.Exec(ctx, `
+INSERT INTO user_searches (user_id, filters, results_count)
+VALUES (@user_id, @filters::jsonb, @results_count);
+`, pgx.NamedArgs{"user_id": user.ID, "filters": string(filters), "results_count": payload.ResultsCount})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	_ = s.recordAction(ctx, user.ID, EventRequest{Action: "search", Metadata: map[string]any{"filters": payload.Filters, "results_count": payload.ResultsCount}})
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
@@ -915,6 +1348,13 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprintf(w, "window.VIETNEST_UI_THEME = %s;\n", theme)
+		fmt.Fprintf(w, "window.VIETNEST_FREE_VIEW_LIMIT = %d;\n", freeViewLimit())
+		supportURL, err := json.Marshal(subscriptionSupportURL())
+		if err != nil {
+			http.Error(w, "failed to render config", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, "window.VIETNEST_SUBSCRIPTION_URL = %s;\n", supportURL)
 	case "index.html", "styles.css", "app.js":
 		http.ServeFile(w, r, path)
 	default:
@@ -943,8 +1383,8 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Vietnest-Client-Id")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

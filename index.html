@@ -201,6 +201,23 @@
     </button>
   </section>
 
+  <section class="paywall-overlay" id="paywallOverlay" aria-hidden="true">
+    <div class="paywall-panel">
+      <button class="paywall-close" id="paywallCloseBtn" type="button" aria-label="Close paywall">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <span class="paywall-kicker">VietNest Plus</span>
+      <h2>30 вариантов уже посмотрели</h2>
+      <p>Дальше открываем доступ вручную: напишите нам в Telegram, и мы подключим подписку.</p>
+      <div class="paywall-meter">
+        <span>Viewed</span>
+        <strong id="paywallUsage">30/30</strong>
+      </div>
+      <div class="paywall-note">Осталось бесплатно: <strong id="paywallRemaining">0</strong></div>
+      <button class="paywall-primary" id="paywallSubscribeBtn" type="button">Написать за подпиской</button>
+    </div>
+  </section>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./config.js"></script>
   <script src="./app.js"></script>
