@@ -21,7 +21,9 @@ function applyTheme() {
 
 function applyRuntimeClasses() {
   const previewTelegram = new URLSearchParams(window.location.search).has('tg-preview');
-  document.documentElement.classList.toggle('is-telegram', Boolean(tg) || previewTelegram);
+  const mobileViewport = Math.min(window.innerWidth || 0, window.screen?.width || window.innerWidth || 0) <= 720;
+  const shortViewport = appViewportHeight() <= 820;
+  document.documentElement.classList.toggle('is-telegram', Boolean(tg) || previewTelegram || mobileViewport || shortViewport);
 }
 
 function appViewportHeight() {
@@ -42,7 +44,10 @@ function bindViewportSync() {
   let frame = 0;
   const schedule = () => {
     window.cancelAnimationFrame(frame);
-    frame = window.requestAnimationFrame(syncAppViewport);
+    frame = window.requestAnimationFrame(() => {
+      syncAppViewport();
+      applyRuntimeClasses();
+    });
   };
   window.addEventListener('resize', schedule, { passive: true });
   window.addEventListener('orientationchange', schedule, { passive: true });

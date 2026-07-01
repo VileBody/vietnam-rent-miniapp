@@ -1669,6 +1669,7 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	switch path {
 	case "config.js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
 		theme, err := json.Marshal(uiTheme())
 		if err != nil {
 			http.Error(w, "failed to render config", http.StatusInternalServerError)
@@ -1683,6 +1684,7 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "window.VIETNEST_SUBSCRIPTION_URL = %s;\n", supportURL)
 	case "index.html", "styles.css", "app.js":
+		w.Header().Set("Cache-Control", "no-store")
 		http.ServeFile(w, r, path)
 	default:
 		http.NotFound(w, r)
