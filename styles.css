@@ -948,6 +948,76 @@ legend,
   color: var(--primary);
 }
 
+html.is-telegram .screen {
+  padding: calc(10px + var(--safe-top)) 14px 8px;
+}
+
+html.is-telegram .topline {
+  gap: 10px;
+  padding: 0 2px 8px;
+}
+
+html.is-telegram .topline h1 {
+  font-size: 24px;
+}
+
+html.is-telegram .topline p {
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.12;
+}
+
+html.is-telegram .icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+}
+
+html.is-telegram .icon-button svg {
+  width: 21px;
+  height: 21px;
+}
+
+html.is-telegram .deck-wrap {
+  padding-top: 0;
+}
+
+html.is-telegram .actions {
+  height: 76px;
+  gap: 18px;
+}
+
+html.is-telegram .round-action.skip {
+  width: 52px;
+  height: 52px;
+}
+
+html.is-telegram .round-action.info {
+  width: 44px;
+  height: 44px;
+}
+
+html.is-telegram .round-action.like {
+  width: 58px;
+  height: 58px;
+}
+
+html.is-telegram .tabbar {
+  height: calc(64px + var(--safe-bottom));
+  align-items: start;
+  padding: 8px 10px var(--safe-bottom);
+}
+
+html.is-telegram .tab {
+  gap: 3px;
+  font-size: 9px;
+}
+
+html.is-telegram .tab svg {
+  width: 21px;
+  height: 21px;
+}
+
 .badge {
   position: absolute;
   top: -6px;
@@ -1462,6 +1532,54 @@ legend,
     left: 50%;
     right: auto;
     transform: translateX(-50%);
+  }
+}
+
+@media (max-height: 760px) {
+  html.is-telegram .screen {
+    padding: calc(8px + var(--safe-top)) 12px 7px;
+  }
+
+  html.is-telegram .topline {
+    padding-bottom: 6px;
+  }
+
+  html.is-telegram .topline h1 {
+    font-size: 22px;
+  }
+
+  html.is-telegram .topline p {
+    font-size: 10px;
+  }
+
+  html.is-telegram .icon-button {
+    width: 38px;
+    height: 38px;
+  }
+
+  html.is-telegram .actions {
+    height: 68px;
+    gap: 16px;
+  }
+
+  html.is-telegram .round-action.skip {
+    width: 48px;
+    height: 48px;
+  }
+
+  html.is-telegram .round-action.info {
+    width: 40px;
+    height: 40px;
+  }
+
+  html.is-telegram .round-action.like {
+    width: 54px;
+    height: 54px;
+  }
+
+  html.is-telegram .tabbar {
+    height: calc(58px + var(--safe-bottom));
+    padding-top: 6px;
   }
 }
 

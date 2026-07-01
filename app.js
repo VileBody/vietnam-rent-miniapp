@@ -3,6 +3,7 @@ const API_BASE = window.VIETNEST_API_BASE || (window.location.port === '5174' ? 
 const UI_THEME = window.VIETNEST_UI_THEME === 'warm' ? 'warm' : 'crisp';
 
 applyTheme();
+applyRuntimeClasses();
 syncAppViewport();
 bindViewportSync();
 
@@ -16,6 +17,11 @@ const STORAGE = {
 function applyTheme() {
   document.documentElement.dataset.theme = UI_THEME;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', UI_THEME === 'warm' ? '#f4ede2' : '#eceff5');
+}
+
+function applyRuntimeClasses() {
+  const previewTelegram = new URLSearchParams(window.location.search).has('tg-preview');
+  document.documentElement.classList.toggle('is-telegram', Boolean(tg) || previewTelegram);
 }
 
 function appViewportHeight() {
