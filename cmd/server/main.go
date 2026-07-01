@@ -988,7 +988,7 @@ func sendTelegramStartMessage(ctx context.Context, chatID int64) error {
 			"inline_keyboard": [][]map[string]any{
 				{
 					{
-						"text": "Open VietNest",
+						"text": "Открыть VietNest",
 						"web_app": map[string]string{
 							"url": telegramMiniAppURL(),
 						},
@@ -1720,7 +1720,7 @@ func maskListingForUser(listing *Listing, user AppUser) {
 	}
 	listing.Contact = Contact{
 		Name:  "VietNest Plus",
-		Line:  "Contacts available after subscription",
+		Line:  "Контакты доступны по подписке",
 		Value: "",
 	}
 	listing.FBURL = ""

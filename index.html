@@ -13,13 +13,13 @@
 <body>
   <div class="app-shell">
     <main class="screens">
-      <section class="screen screen-discover is-active" id="screen-discover" aria-label="Discover">
+      <section class="screen screen-discover is-active" id="screen-discover" aria-label="Подбор">
         <header class="topline">
           <div>
             <h1>VietNest</h1>
-            <p>Vietnam rentals · Аренда</p>
+            <p id="topSubtitle">Аренда жилья во Вьетнаме</p>
           </div>
-          <button class="icon-button" id="openFiltersTop" type="button" aria-label="Filters">
+          <button class="icon-button" id="openFiltersTop" type="button" aria-label="Фильтры">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.4"/><circle cx="11" cy="17" r="2.4"/></svg>
           </button>
         </header>
@@ -30,84 +30,84 @@
               <span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-11"/></svg>
               </span>
-              <h2>You're all caught up</h2>
-              <p>Вы посмотрели все варианты по текущим фильтрам.</p>
-              <button id="resetDeckBtn" type="button">Start over</button>
+              <h2 id="emptyTitle">Все варианты просмотрены</h2>
+              <p id="emptyText">Вы посмотрели все варианты по текущим фильтрам.</p>
+              <button id="resetDeckBtn" type="button">Начать заново</button>
             </div>
           </div>
           <div class="fly-layer" id="flyLayer" aria-hidden="true"></div>
         </div>
 
-        <div class="actions" aria-label="Действия">
-          <button class="round-action skip" id="skipBtn" type="button" aria-label="Skip">
+        <div class="actions" id="actionsLabel" aria-label="Действия">
+          <button class="round-action skip" id="skipBtn" type="button" aria-label="Пропустить">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>
           </button>
-          <button class="round-action info" id="infoBtn" type="button" aria-label="Details">
+          <button class="round-action info" id="infoBtn" type="button" aria-label="Подробнее">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></svg>
           </button>
-          <button class="round-action like" id="likeBtn" type="button" aria-label="Add to shortlist">
+          <button class="round-action like" id="likeBtn" type="button" aria-label="Добавить в избранное">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
           </button>
         </div>
       </section>
 
-      <section class="screen" id="screen-shortlist" aria-label="Shortlist">
+      <section class="screen" id="screen-shortlist" aria-label="Избранное">
         <header class="page-head">
           <div>
-            <h2>Shortlist</h2>
-            <p id="shortlistCount">0 saved · 0 в избранном</p>
+            <h2 id="shortlistTitle">Избранное</h2>
+            <p id="shortlistCount">0 сохранено</p>
           </div>
         </header>
         <div class="shortlist" id="shortlist"></div>
       </section>
 
-      <section class="screen" id="screen-filters" aria-label="Filters">
+      <section class="screen" id="screen-filters" aria-label="Фильтры">
         <header class="filter-head">
-          <h2>Filters</h2>
-          <button id="resetFiltersBtn" type="button">Reset</button>
+          <h2 id="filtersTitle">Фильтры</h2>
+          <button id="resetFiltersBtn" type="button">Сбросить</button>
         </header>
         <div class="filter-scroll">
           <fieldset class="filter-block">
-            <legend>City · Город</legend>
+            <legend id="cityLegend">Город</legend>
             <div class="chip-grid" id="cityChips"></div>
           </fieldset>
 
           <fieldset class="filter-block">
             <div class="range-title">
-              <legend>Budget / mo</legend>
-              <output id="budgetLabel">up to $2500</output>
+              <legend id="budgetLegend">Бюджет / мес</legend>
+              <output id="budgetLabel">до $2500</output>
             </div>
             <input class="range" id="budgetRange" type="range" min="120" max="6000" step="20" value="2500" />
           </fieldset>
 
           <fieldset class="filter-block">
-            <legend>Type · Тип</legend>
+            <legend id="typeLegend">Тип жилья</legend>
             <div class="chip-grid" id="typeChips"></div>
           </fieldset>
 
           <fieldset class="filter-block">
-            <legend>Bedrooms · Спальни</legend>
+            <legend id="bedLegend">Спальни</legend>
             <div class="segmented" id="bedChips"></div>
           </fieldset>
 
           <div class="switch-row">
             <div>
-              <strong>Furnished only</strong>
-              <span>С мебелью</span>
+              <strong id="furnishedTitle">Только с мебелью</strong>
+              <span id="furnishedHint">Меблированные варианты</span>
             </div>
-            <button class="switch" id="furnishedToggle" type="button" aria-label="Furnished only"><span></span></button>
+            <button class="switch" id="furnishedToggle" type="button" aria-label="Только с мебелью"><span></span></button>
           </div>
         </div>
         <footer class="filter-apply">
-          <button id="applyFiltersBtn" type="button">Show <span id="resultCount">0</span> homes</button>
+          <button id="applyFiltersBtn" type="button">Показать <span id="resultCount">0</span> вариантов</button>
         </footer>
       </section>
 
-      <section class="screen" id="screen-profile" aria-label="Profile">
+      <section class="screen" id="screen-profile" aria-label="Профиль">
         <header class="page-head">
           <div>
-            <h2>Profile</h2>
-            <p>Looking in Vietnam</p>
+            <h2 id="profileTitle">Профиль</h2>
+            <p id="profileHeaderSubtitle">Ищем жилье во Вьетнаме</p>
           </div>
         </header>
         <div class="profile-card">
@@ -118,99 +118,99 @@
           </div>
         </div>
         <div class="stats">
-          <div><strong id="profileSaved">0</strong><span>Saved</span></div>
-          <div><strong id="profileSeen">0</strong><span>Viewed</span></div>
+          <div><strong id="profileSaved">0</strong><span id="profileSavedLabel">Сохранено</span></div>
+          <div><strong id="profileSeen">0</strong><span id="profileSeenLabel">Просмотрено</span></div>
         </div>
         <div class="menu-list">
-          <div><span>Budget</span><strong id="profileBudget">$2500</strong></div>
-          <div><span>City filter</span><strong id="profileCities">All</strong></div>
-          <div><span>Type</span><strong id="profileType">Any</strong></div>
-          <div><span>Language</span><strong>RU / EN</strong></div>
+          <div><span id="profileBudgetLabel">Бюджет</span><strong id="profileBudget">$2500</strong></div>
+          <div><span id="profileCityLabel">Город</span><strong id="profileCities">Все</strong></div>
+          <div><span id="profileTypeLabel">Тип</span><strong id="profileType">Любой</strong></div>
+          <button class="menu-row-button" id="languageToggleBtn" type="button"><span id="profileLanguageLabel">Язык</span><strong id="profileLanguageValue">RU</strong></button>
         </div>
       </section>
     </main>
 
-    <nav class="tabbar" aria-label="Navigation">
+    <nav class="tabbar" aria-label="Навигация">
       <button class="tab is-active" data-screen="discover" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5.5-5 2 2-5.5z"/></svg>
-        <span>Discover</span>
+        <span id="tabDiscover">Подбор</span>
       </button>
       <button class="tab" data-screen="shortlist" type="button" id="shortlistTab">
         <span class="badge" id="shortlistBadge">0</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>
-        <span>Shortlist</span>
+        <span id="tabShortlist">Избранное</span>
       </button>
       <button class="tab" data-screen="filters" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.3"/><circle cx="11" cy="17" r="2.3"/></svg>
-        <span>Filters</span>
+        <span id="tabFilters">Фильтры</span>
       </button>
       <button class="tab" data-screen="profile" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0113 0"/></svg>
-        <span>Profile</span>
+        <span id="tabProfile">Профиль</span>
       </button>
     </nav>
   </div>
 
   <section class="detail-overlay" id="detailOverlay" aria-hidden="true">
     <div class="detail-hero" id="detailHero">
-      <button class="hero-button" id="closeDetailBtn" type="button" aria-label="Back">
+      <button class="hero-button" id="closeDetailBtn" type="button" aria-label="Назад">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
-      <button class="hero-button expand" id="detailExpandBtn" type="button" aria-label="Open photo full screen">
+      <button class="hero-button expand" id="detailExpandBtn" type="button" aria-label="Открыть фото на весь экран">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"/></svg>
       </button>
-      <button class="hero-button heart" id="detailLikeBtn" type="button" aria-label="Add to shortlist">
+      <button class="hero-button heart" id="detailLikeBtn" type="button" aria-label="Добавить в избранное">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
       </button>
     </div>
     <div class="detail-body">
       <div class="detail-title">
         <div>
-          <div class="detail-price"><span id="detailPrice">$0</span><small>/month</small></div>
-          <h2 id="detailTitle">Apartment</h2>
-          <p id="detailArea">Vietnam</p>
+          <div class="detail-price"><span id="detailPrice">$0</span><small id="detailMonthLabel">/мес</small></div>
+          <h2 id="detailTitle">Квартира</h2>
+          <p id="detailArea">Вьетнам</p>
         </div>
         <div class="rating"><span>★</span><strong id="detailScore">90</strong></div>
       </div>
       <div class="detail-gallery" id="detailGallery"></div>
       <div class="detail-specs" id="detailSpecs"></div>
-      <h3>About · Описание</h3>
+      <h3 id="detailAboutTitle">Описание</h3>
       <p class="about" id="detailAbout"></p>
-      <h3>Included · Включено</h3>
+      <h3 id="detailAmenitiesTitle">Что есть</h3>
       <div class="amenities" id="detailAmenities"></div>
     </div>
     <footer class="detail-actions">
-      <button class="detail-primary" id="detailPrimaryBtn" type="button">Add to shortlist</button>
-      <button class="detail-secondary" id="openFbBtn" type="button" aria-label="Open Facebook">
+      <button class="detail-primary" id="detailPrimaryBtn" type="button">Добавить в избранное</button>
+      <button class="detail-secondary" id="openFbBtn" type="button" aria-label="Открыть контакт">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 01-12.2 7.6L3 21l1.9-5.7A8.5 8.5 0 1121 11.5z"/></svg>
       </button>
     </footer>
   </section>
 
   <section class="photo-viewer" id="photoViewer" aria-hidden="true">
-    <button class="viewer-close" id="viewerCloseBtn" type="button" aria-label="Close full screen photo">
+    <button class="viewer-close" id="viewerCloseBtn" type="button" aria-label="Закрыть фото">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
     <div class="viewer-count" id="viewerCount">1 / 1</div>
-    <button class="viewer-nav prev" id="viewerPrevBtn" type="button" aria-label="Previous photo">
+    <button class="viewer-nav prev" id="viewerPrevBtn" type="button" aria-label="Предыдущее фото">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
-    <img id="viewerImage" alt="Apartment photo full screen" draggable="false" />
-    <button class="viewer-nav next" id="viewerNextBtn" type="button" aria-label="Next photo">
+    <img id="viewerImage" alt="Фото жилья на весь экран" draggable="false" />
+    <button class="viewer-nav next" id="viewerNextBtn" type="button" aria-label="Следующее фото">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
     </button>
   </section>
 
   <section class="paywall-overlay" id="paywallOverlay" aria-hidden="true">
     <div class="paywall-panel">
-      <button class="paywall-close" id="paywallCloseBtn" type="button" aria-label="Close paywall">
+      <button class="paywall-close" id="paywallCloseBtn" type="button" aria-label="Закрыть окно оплаты">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <span class="paywall-kicker">VietNest Plus</span>
       <h2 id="paywallTitle">30 вариантов уже посмотрели</h2>
       <p id="paywallText">Дальше открываем доступ вручную: напишите нам в Telegram, и мы подключим подписку.</p>
       <div class="paywall-meter" id="paywallMeter">
-        <span>Viewed</span>
+        <span>Просмотрено</span>
         <strong id="paywallUsage">30/30</strong>
       </div>
       <div class="paywall-note" id="paywallNote">Осталось бесплатно: <strong id="paywallRemaining">0</strong></div>

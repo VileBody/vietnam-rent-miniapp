@@ -886,25 +886,31 @@ legend,
   overflow: hidden;
 }
 
-.menu-list div {
+.menu-list div,
+.menu-row-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
   padding: 15px 17px;
   border-bottom: 1px solid var(--line);
+  text-align: left;
 }
 
-.menu-list div:last-child {
+.menu-list div:last-child,
+.menu-row-button:last-child {
   border-bottom: 0;
 }
 
-.menu-list span {
+.menu-list span,
+.menu-row-button span {
   font-size: 14px;
   font-weight: 700;
 }
 
-.menu-list strong {
+.menu-list strong,
+.menu-row-button strong {
   max-width: 52%;
   color: var(--sub);
   font-size: 13px;

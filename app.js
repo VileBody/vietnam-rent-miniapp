@@ -12,7 +12,185 @@ const STORAGE = {
   seen: 'vietnest:reference:v1:seen',
   filters: 'vietnest:reference:v1:filters',
   clientId: 'vietnest:reference:v1:clientId',
+  language: 'vietnest:reference:v1:language',
 };
+
+const I18N = {
+  ru: {
+    topSubtitle: 'Аренда жилья во Вьетнаме',
+    discover: 'Подбор',
+    shortlist: 'Избранное',
+    filters: 'Фильтры',
+    profile: 'Профиль',
+    actions: 'Действия',
+    openFilters: 'Фильтры',
+    skip: 'Пропустить',
+    info: 'Подробнее',
+    addFavorite: 'Добавить в избранное',
+    emptyTitle: 'Все варианты просмотрены',
+    emptyText: 'Вы посмотрели все варианты по текущим фильтрам.',
+    restart: 'Начать заново',
+    savedCount: '{count} сохранено',
+    city: 'Город',
+    budgetMonth: 'Бюджет / мес',
+    type: 'Тип жилья',
+    bedrooms: 'Спальни',
+    reset: 'Сбросить',
+    showVariants: 'Показать',
+    variants: 'вариантов',
+    furnishedOnly: 'Только с мебелью',
+    furnishedHint: 'Меблированные варианты',
+    profileHeaderSubtitle: 'Ищем жилье во Вьетнаме',
+    saved: 'Сохранено',
+    viewed: 'Просмотрено',
+    budget: 'Бюджет',
+    language: 'Язык',
+    allVietnam: 'Весь Вьетнам',
+    all: 'Все',
+    any: 'Любой',
+    anyPlural: 'Любые',
+    apartment: 'Квартира',
+    villa: 'Вилла',
+    furnished: 'С мебелью',
+    studio: 'Студия',
+    bedShort: 'сп.',
+    today: 'сегодня',
+    yesterday: 'вчера',
+    noSavedTitle: 'Пока ничего не сохранено',
+    noSavedText: 'Свайпайте вправо, чтобы сохранить.',
+    remove: 'Удалить',
+    priceRequest: 'Цена по запросу',
+    monthShort: '/мес',
+    monthCaption: 'в месяц',
+    fit: 'совпадение',
+    details: 'детали',
+    about: 'Описание',
+    amenities: 'Что есть',
+    openContacts: 'Открыть контакты',
+    openOriginal: 'Открыть оригинал',
+    contactAria: 'Открыть контакт',
+    back: 'Назад',
+    expandPhoto: 'Открыть фото на весь экран',
+    closePhoto: 'Закрыть фото',
+    prevPhoto: 'Предыдущее фото',
+    nextPhoto: 'Следующее фото',
+    photoFullAlt: 'Фото жилья на весь экран',
+    photoProgress: 'Фото {current} из {total}',
+    showPhoto: 'Показать фото {number}',
+    homePhoto: '{title} фото {number}',
+    viewerPhotoAlt: '{title} фото {number}',
+    likedStamp: 'НРАВ',
+    skippedStamp: 'НЕТ',
+    filtersApplied: 'Фильтры применены',
+    addedToShortlist: 'Добавлено в избранное',
+    searchingAll: 'Ищем по всему Вьетнаму',
+    searchingCity: 'Ищем в {city}',
+    paywallKicker: 'VietNest Plus',
+    paywallViewsTitle: '30 вариантов уже посмотрели',
+    paywallContactsTitle: 'Контакты доступны по подписке',
+    paywallViewsText: 'Дальше открываем доступ вручную: напишите нам в Telegram, и мы подключим подписку.',
+    paywallContactsText: 'Чтобы получить доступ к контактам и оригинальным объявлениям, оплатите подписку. Напишите нам в Telegram, и мы подключим доступ вручную.',
+    paywallViewed: 'Просмотрено',
+    paywallRemaining: 'Осталось бесплатно:',
+    paywallSubscribe: 'Написать за подпиской',
+    closePaywall: 'Закрыть окно оплаты',
+    demoTitle: 'Квартира с балконом и видом на Han River',
+    demoSource: 'Демо',
+    demoDetails: 'Демо-объявление',
+    demoAbout: 'Демо-объявление используется только если API временно недоступен.',
+    fallbackTitle: 'Жилье во Вьетнаме',
+    vietnam: 'Вьетнам',
+    contactLockedLine: 'Контакты доступны по подписке',
+  },
+  en: {
+    topSubtitle: 'Vietnam rentals',
+    discover: 'Discover',
+    shortlist: 'Shortlist',
+    filters: 'Filters',
+    profile: 'Profile',
+    actions: 'Actions',
+    openFilters: 'Filters',
+    skip: 'Skip',
+    info: 'Details',
+    addFavorite: 'Add to shortlist',
+    emptyTitle: 'All homes viewed',
+    emptyText: 'You have viewed every home in the current filters.',
+    restart: 'Start over',
+    savedCount: '{count} saved',
+    city: 'City',
+    budgetMonth: 'Budget / mo',
+    type: 'Home type',
+    bedrooms: 'Bedrooms',
+    reset: 'Reset',
+    showVariants: 'Show',
+    variants: 'homes',
+    furnishedOnly: 'Furnished only',
+    furnishedHint: 'Ready-to-live homes',
+    profileHeaderSubtitle: 'Finding homes in Vietnam',
+    saved: 'Saved',
+    viewed: 'Viewed',
+    budget: 'Budget',
+    language: 'Language',
+    allVietnam: 'All Vietnam',
+    all: 'All',
+    any: 'Any',
+    anyPlural: 'Any',
+    apartment: 'Apartment',
+    villa: 'Villa',
+    furnished: 'Furnished',
+    studio: 'Studio',
+    bedShort: 'BR',
+    today: 'seen today',
+    yesterday: 'yesterday',
+    noSavedTitle: 'No saved homes yet',
+    noSavedText: 'Swipe right to save.',
+    remove: 'Remove',
+    priceRequest: 'Price on request',
+    monthShort: '/month',
+    monthCaption: 'monthly',
+    fit: 'fit',
+    details: 'detail',
+    about: 'About',
+    amenities: 'Amenities',
+    openContacts: 'Unlock contacts',
+    openOriginal: 'Open original listing',
+    contactAria: 'Open contact',
+    back: 'Back',
+    expandPhoto: 'Open photo fullscreen',
+    closePhoto: 'Close photo',
+    prevPhoto: 'Previous photo',
+    nextPhoto: 'Next photo',
+    photoFullAlt: 'Full-screen home photo',
+    photoProgress: 'Photo {current} of {total}',
+    showPhoto: 'Show photo {number}',
+    homePhoto: '{title} photo {number}',
+    viewerPhotoAlt: '{title} photo {number}',
+    likedStamp: 'LIKE',
+    skippedStamp: 'SKIP',
+    filtersApplied: 'Filters applied',
+    addedToShortlist: 'Added to shortlist',
+    searchingAll: 'Looking across Vietnam',
+    searchingCity: 'Looking in {city}',
+    paywallKicker: 'VietNest Plus',
+    paywallViewsTitle: '30 homes viewed',
+    paywallContactsTitle: 'Contacts are available with a subscription',
+    paywallViewsText: 'We unlock access manually: message us in Telegram and we will enable your subscription.',
+    paywallContactsText: 'To access contacts and original listings, subscribe first. Message us in Telegram and we will enable access manually.',
+    paywallViewed: 'Viewed',
+    paywallRemaining: 'Free views left:',
+    paywallSubscribe: 'Message for subscription',
+    closePaywall: 'Close paywall',
+    demoTitle: 'Apartment With Balcony & Han River View',
+    demoSource: 'Demo',
+    demoDetails: 'Fallback listing',
+    demoAbout: 'Demo fallback listing used only when the API is unavailable.',
+    fallbackTitle: 'Apartment in Vietnam',
+    vietnam: 'Vietnam',
+    contactLockedLine: 'Contacts are available with a subscription',
+  },
+};
+
+let activeLanguage = initialLanguage();
 
 function applyTheme() {
   document.documentElement.dataset.theme = UI_THEME;
@@ -61,7 +239,7 @@ function bindViewportSync() {
 }
 
 const cityLabels = {
-  all: 'All Vietnam',
+  all: 'all',
   danang: 'Da Nang',
   hcmc: 'Ho Chi Minh',
   hoian: 'Hoi An',
@@ -69,28 +247,9 @@ const cityLabels = {
   phuquoc: 'Phu Quoc',
 };
 
-const cityOptions = [
-  ['all', 'All Vietnam'],
-  ['danang', 'Da Nang'],
-  ['nhatrang', 'Nha Trang'],
-  ['hoian', 'Hoi An'],
-  ['hcmc', 'Ho Chi Minh'],
-  ['phuquoc', 'Phu Quoc'],
-];
-
-const typeOptions = [
-  ['all', 'Any'],
-  ['apartment', 'Apartment'],
-  ['villa', 'Villa'],
-];
-
-const bedOptions = [
-  ['any', 'Any'],
-  ['studio', 'Studio'],
-  ['1', '1+'],
-  ['2', '2+'],
-  ['3', '3+'],
-];
+const cityCodes = ['all', 'danang', 'nhatrang', 'hoian', 'hcmc', 'phuquoc'];
+const typeCodes = ['all', 'apartment', 'villa'];
+const bedCodes = ['any', 'studio', '1', '2', '3'];
 
 const defaultFilters = {
   city: 'all',
@@ -107,19 +266,19 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const fallbackHomes = [
   {
     id: 'fallback-danang',
-    title: 'Apartment With Balcony & Han River View Pool',
+    title: t('demoTitle'),
     area: 'Son Tra, Da Nang',
     city: 'danang',
     type: 'apartment',
     price: 320,
     score: 91,
-    source: 'Demo',
-    fresh: 'seen today',
-    specs: ['$320/mo', '1 bed', 'Da Nang'],
-    details: ['Fallback listing'],
+    source: t('demoSource'),
+    fresh: t('today'),
+    specs: [`$320${t('monthShort')}`, '1 bedroom', 'Da Nang'],
+    details: [t('demoDetails')],
     tags: ['balcony', 'pool', 'furnished'],
-    about: 'Demo fallback listing used only when the API is unavailable.',
-    contact: { name: 'Facebook Marketplace', line: 'Open original listing', value: 'https://www.facebook.com/marketplace/' },
+    about: t('demoAbout'),
+    contact: { name: 'Facebook Marketplace', line: t('openOriginal'), value: 'https://www.facebook.com/marketplace/' },
     fbUrl: 'https://www.facebook.com/marketplace/',
     photos: ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&q=82&auto=format&fit=crop'],
     petFriendly: false,
@@ -135,6 +294,7 @@ const state = {
   viewerHomeId: null,
   viewerPhotoIndex: 0,
   photoIndexes: {},
+  language: activeLanguage,
   session: null,
   paywallOpen: false,
   queue: [],
@@ -160,6 +320,146 @@ function writeJSON(key, value) {
   } catch {
     // LocalStorage can be unavailable in embedded contexts.
   }
+}
+
+function initialLanguage() {
+  const params = new URLSearchParams(window.location.search);
+  const queryLanguage = params.get('lang');
+  if (queryLanguage === 'ru' || queryLanguage === 'en') {
+    try {
+      window.localStorage.setItem(STORAGE.language, queryLanguage);
+    } catch {
+      // ignore storage failures in embedded browsers.
+    }
+    return queryLanguage;
+  }
+  try {
+    const saved = window.localStorage.getItem(STORAGE.language);
+    if (saved === 'ru' || saved === 'en') return saved;
+  } catch {
+    // ignore storage failures in embedded browsers.
+  }
+  return 'ru';
+}
+
+function t(key, vars = {}) {
+  const template = I18N[activeLanguage]?.[key] || I18N.ru[key] || key;
+  return Object.entries(vars).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), template);
+}
+
+function setText(id, value) {
+  const node = $(id);
+  if (node) node.textContent = value;
+}
+
+function setAria(id, value) {
+  const node = $(id);
+  if (node) node.setAttribute('aria-label', value);
+}
+
+function cityLabel(value) {
+  if (value === 'all') return t('allVietnam');
+  return cityLabels[value] || t('vietnam');
+}
+
+function typeLabel(value) {
+  if (value === 'villa') return t('villa');
+  if (value === 'apartment') return t('apartment');
+  return t('any');
+}
+
+function cityOptions() {
+  return cityCodes.map((value) => [value, cityLabel(value)]);
+}
+
+function typeOptions() {
+  return typeCodes.map((value) => [value, typeLabel(value)]);
+}
+
+function bedOptions() {
+  return bedCodes.map((value) => [value, value === 'any' ? t('anyPlural') : value === 'studio' ? t('studio') : `${value}+`]);
+}
+
+function applyI18n() {
+  document.documentElement.lang = activeLanguage;
+  setText('topSubtitle', t('topSubtitle'));
+  setAria('screen-discover', t('discover'));
+  setAria('screen-shortlist', t('shortlist'));
+  setAria('screen-filters', t('filters'));
+  setAria('screen-profile', t('profile'));
+  setAria('openFiltersTop', t('openFilters'));
+  setAria('actionsLabel', t('actions'));
+  setAria('skipBtn', t('skip'));
+  setAria('infoBtn', t('info'));
+  setAria('likeBtn', t('addFavorite'));
+  setText('emptyTitle', t('emptyTitle'));
+  setText('emptyText', t('emptyText'));
+  setText('resetDeckBtn', t('restart'));
+  setText('shortlistTitle', t('shortlist'));
+  setText('filtersTitle', t('filters'));
+  setText('resetFiltersBtn', t('reset'));
+  setText('cityLegend', t('city'));
+  setText('budgetLegend', t('budgetMonth'));
+  setText('typeLegend', t('type'));
+  setText('bedLegend', t('bedrooms'));
+  setText('furnishedTitle', t('furnishedOnly'));
+  setText('furnishedHint', t('furnishedHint'));
+  setAria('furnishedToggle', t('furnishedOnly'));
+  setText('profileTitle', t('profile'));
+  setText('profileHeaderSubtitle', t('profileHeaderSubtitle'));
+  setText('profileSavedLabel', t('saved'));
+  setText('profileSeenLabel', t('viewed'));
+  setText('profileBudgetLabel', t('budget'));
+  setText('profileCityLabel', t('city'));
+  setText('profileTypeLabel', t('type'));
+  setText('profileLanguageLabel', t('language'));
+  setText('profileLanguageValue', activeLanguage.toUpperCase());
+  setText('tabDiscover', t('discover'));
+  setText('tabShortlist', t('shortlist'));
+  setText('tabFilters', t('filters'));
+  setText('tabProfile', t('profile'));
+  setAria('closeDetailBtn', t('back'));
+  setAria('detailExpandBtn', t('expandPhoto'));
+  setAria('detailLikeBtn', t('addFavorite'));
+  setText('detailMonthLabel', t('monthShort'));
+  setText('detailAboutTitle', t('about'));
+  setText('detailAmenitiesTitle', t('amenities'));
+  setAria('openFbBtn', t('contactAria'));
+  setAria('viewerCloseBtn', t('closePhoto'));
+  setAria('viewerPrevBtn', t('prevPhoto'));
+  setAria('viewerNextBtn', t('nextPhoto'));
+  setAria('paywallCloseBtn', t('closePaywall'));
+  setText('paywallSubscribeBtn', t('paywallSubscribe'));
+  const viewerImage = $('viewerImage');
+  if (viewerImage && !viewerImage.src) viewerImage.alt = t('photoFullAlt');
+  const resultCount = $('resultCount')?.textContent || '0';
+  $('applyFiltersBtn').innerHTML = `${escapeHTML(t('showVariants'))} <span id="resultCount">${escapeHTML(resultCount)}</span> ${escapeHTML(t('variants'))}`;
+  const paywallKicker = document.querySelector('.paywall-kicker');
+  if (paywallKicker) paywallKicker.textContent = t('paywallKicker');
+  const paywallViewed = document.querySelector('#paywallMeter span');
+  if (paywallViewed) paywallViewed.textContent = t('paywallViewed');
+  updatePaywallNote();
+}
+
+function updatePaywallNote() {
+  const remaining = $('paywallRemaining')?.textContent || '0';
+  const note = $('paywallNote');
+  if (note) note.innerHTML = `${escapeHTML(t('paywallRemaining'))} <strong id="paywallRemaining">${escapeHTML(remaining)}</strong>`;
+}
+
+function setLanguage(language) {
+  activeLanguage = language === 'ru' ? 'ru' : 'en';
+  state.language = activeLanguage;
+  try {
+    window.localStorage.setItem(STORAGE.language, activeLanguage);
+  } catch {
+    // ignore storage failures in embedded browsers.
+  }
+  applyI18n();
+  render();
+  if ($('detailOverlay').classList.contains('is-open')) openDetail(activeDetail(), { track: false });
+  if ($('photoViewer').classList.contains('is-open')) renderPhotoViewer();
+  if (state.paywallOpen) showPaywall(contactsLocked() ? 'contacts' : 'views');
 }
 
 function clientId() {
@@ -293,7 +593,7 @@ function normalizeHome(raw) {
   const tags = Array.isArray(raw.tags) ? raw.tags.map(cleanText).filter(Boolean) : [];
   const specs = Array.isArray(raw.specs) ? raw.specs.map(cleanText).filter(Boolean) : [];
   const details = Array.isArray(raw.details) ? raw.details.map(cleanText).filter(Boolean) : [];
-  const title = cleanText(raw.title || 'Apartment in Vietnam');
+  const title = cleanText(raw.title || t('fallbackTitle'));
   const about = cleanText(raw.about || raw.description || title);
   const source = cleanText(raw.source || 'Facebook Marketplace');
   const city = cleanText(raw.city || 'all').toLowerCase();
@@ -303,20 +603,20 @@ function normalizeHome(raw) {
   return {
     id: String(raw.id || raw.externalId || raw.external_id || `${city}-${title}`),
     title,
-    area: cleanText(raw.area || cityLabels[city] || 'Vietnam'),
+    area: cleanText(raw.area || cityLabel(city)),
     city,
     type,
     price: Number(raw.price || raw.priceUsd || raw.price_usd || 0),
     score: clamp(Number(raw.score || raw.matchScore || raw.match_score || 76), 0, 99),
     source,
-    fresh: cleanText(raw.fresh || 'seen today'),
+    fresh: cleanText(raw.fresh || t('today')),
     specs,
     details,
     tags,
     about,
     contact: {
       name: cleanText(raw.contact?.name || raw.contactName || 'Facebook Marketplace'),
-      line: cleanText(raw.contact?.line || raw.contactLine || 'Open original listing'),
+      line: cleanText(raw.contact?.line || raw.contactLine || t('openOriginal')),
       value: cleanText(raw.contact?.value || raw.contactValue || raw.fbUrl || raw.fb_url || ''),
     },
     fbUrl: cleanText(raw.fbUrl || raw.fb_url || raw.sourceUrl || raw.source_url || raw.contact?.value || 'https://www.facebook.com/marketplace/'),
@@ -394,8 +694,15 @@ function currentHome() {
 }
 
 function money(value) {
-  if (!value) return 'Price on request';
+  if (!value) return t('priceRequest');
   return `$${Number(value).toLocaleString('en-US')}`;
+}
+
+function displayFresh(value = '') {
+  const text = cleanText(value);
+  if (/seen today|today|сегодня/i.test(text)) return t('today');
+  if (/yesterday|вчера/i.test(text)) return t('yesterday');
+  return text;
 }
 
 function photoIndex(home) {
@@ -461,11 +768,11 @@ function specIcon(index) {
 
 function displaySpecs(home) {
   const specs = [];
-  if (home.beds === 0) specs.push('Studio');
-  else if (home.beds) specs.push(`${home.beds} BR`);
+  if (home.beds === 0) specs.push(t('studio'));
+  else if (home.beds) specs.push(activeLanguage === 'ru' ? `${home.beds} ${t('bedShort')}` : `${home.beds} ${t('bedShort')}`);
   const areaSpec = home.specs.find((spec) => /m²|sqm|кв/i.test(spec));
   if (areaSpec) specs.push(areaSpec.replace(/^\$\S+\s*/, ''));
-  const city = cityLabels[home.city] || home.area || 'Vietnam';
+  const city = cityLabel(home.city) || home.area || t('vietnam');
   specs.push(city);
   return specs.length ? specs.slice(0, 3) : home.specs.slice(0, 3);
 }
@@ -479,19 +786,19 @@ function cardMarkup(home, depth) {
     <div class="photo">
       <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
       <div class="shade"></div>
-      ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="Photo ${selectedPhoto + 1} of ${home.photos.length}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
+      ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="${escapeHTML(t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }))}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
     <div class="card-chips">
       <div class="chip-line">
-        <span class="glass-chip solid">${escapeHTML(home.type === 'villa' ? 'Villa' : 'Apartment')}</span>
-        ${home.furnished ? '<span class="glass-chip">Furnished</span>' : ''}
+        <span class="glass-chip solid">${escapeHTML(typeLabel(home.type))}</span>
+        ${home.furnished ? `<span class="glass-chip">${escapeHTML(t('furnished'))}</span>` : ''}
       </div>
-      <span class="glass-chip">${escapeHTML(home.fresh || home.source)}</span>
+      <span class="glass-chip">${escapeHTML(displayFresh(home.fresh || home.source))}</span>
     </div>
-    <div class="stamp like">LIKE</div>
-    <div class="stamp skip">SKIP</div>
+    <div class="stamp like">${escapeHTML(t('likedStamp'))}</div>
+    <div class="stamp skip">${escapeHTML(t('skippedStamp'))}</div>
     <div class="card-copy">
-      <div class="card-price"><strong>${escapeHTML(money(home.price))}</strong><span>/month</span></div>
+      <div class="card-price"><strong>${escapeHTML(money(home.price))}</strong><span>${escapeHTML(t('monthShort'))}</span></div>
       <h2>${escapeHTML(home.area)}</h2>
       <p>${escapeHTML(home.title)}</p>
       <div class="card-specs">
@@ -658,7 +965,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
     advance(home);
     state.animating = false;
     render();
-    if (save) toast('Added to shortlist');
+    if (save) toast(t('addedToShortlist'));
   }, direction === 'right' ? 600 : 420);
 }
 
@@ -671,7 +978,7 @@ function refreshTopCardPhoto(home) {
   const progressFill = card.querySelector('.photo-rail span');
   if (image) image.src = home.photos[selectedPhoto] || home.photos[0];
   if (progress) {
-    progress.setAttribute('aria-label', `Photo ${selectedPhoto + 1} of ${home.photos.length}`);
+    progress.setAttribute('aria-label', t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }));
     progress.setAttribute('aria-valuenow', String(selectedPhoto + 1));
   }
   if (progressFill) progressFill.style.width = `${((selectedPhoto + 1) / home.photos.length) * 100}%`;
@@ -780,14 +1087,14 @@ function setScreen(screen) {
 function renderShortlist() {
   const list = $('shortlist');
   const saved = [...state.favorites].map((id) => homes.find((home) => home.id === id)).filter(Boolean);
-  $('shortlistCount').textContent = `${saved.length} saved · ${saved.length} в избранном`;
+  $('shortlistCount').textContent = t('savedCount', { count: saved.length });
 
   if (!saved.length) {
     list.innerHTML = `
       <div class="empty-list">
         <span><svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></svg></span>
-        <h3>No saved homes yet</h3>
-        <p>Свайпайте вправо, чтобы сохранить.</p>
+        <h3>${escapeHTML(t('noSavedTitle'))}</h3>
+        <p>${escapeHTML(t('noSavedText'))}</p>
       </div>
     `;
     return;
@@ -797,11 +1104,11 @@ function renderShortlist() {
     <article class="saved-card" data-id="${escapeHTML(home.id)}">
       <img src="${escapeHTML(home.photos[0])}" alt="${escapeHTML(home.title)}" />
       <div>
-        <strong>${escapeHTML(money(home.price))}<small> /mo</small></strong>
+        <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
         <h3>${escapeHTML(home.area)}</h3>
         <p>${escapeHTML(displaySpecs(home).join(' · '))}</p>
       </div>
-      <button class="remove" data-remove="${escapeHTML(home.id)}" type="button" aria-label="Remove">
+      <button class="remove" data-remove="${escapeHTML(home.id)}" type="button" aria-label="${escapeHTML(t('remove'))}">
         <svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>
       </button>
     </article>
@@ -810,11 +1117,13 @@ function renderShortlist() {
 
 function renderFilters() {
   $('budgetRange').value = String(state.filters.budget);
-  $('budgetLabel').textContent = `up to $${Number(state.filters.budget).toLocaleString('en-US')}`;
+  $('budgetLabel').textContent = activeLanguage === 'ru'
+    ? `до $${Number(state.filters.budget).toLocaleString('en-US')}`
+    : `up to $${Number(state.filters.budget).toLocaleString('en-US')}`;
   $('furnishedToggle').classList.toggle('is-active', state.filters.furnished);
-  $('cityChips').innerHTML = cityOptions.map(([value, label]) => chipButton(value, label, state.filters.city === value)).join('');
-  $('typeChips').innerHTML = typeOptions.map(([value, label]) => chipButton(value, label, state.filters.type === value)).join('');
-  $('bedChips').innerHTML = bedOptions.map(([value, label]) => chipButton(value, label, state.filters.beds === value)).join('');
+  $('cityChips').innerHTML = cityOptions().map(([value, label]) => chipButton(value, label, state.filters.city === value)).join('');
+  $('typeChips').innerHTML = typeOptions().map(([value, label]) => chipButton(value, label, state.filters.type === value)).join('');
+  $('bedChips').innerHTML = bedOptions().map(([value, label]) => chipButton(value, label, state.filters.beds === value)).join('');
   $('resultCount').textContent = String(filteredHomes().length);
 }
 
@@ -827,9 +1136,10 @@ function renderProfile() {
   $('profileSaved').textContent = String(state.favorites.size);
   $('profileSeen').textContent = String(seen);
   $('profileBudget').textContent = `$${Number(state.filters.budget).toLocaleString('en-US')}`;
-  $('profileCities').textContent = cityLabels[state.filters.city] || 'All';
-  $('profileType').textContent = state.filters.type === 'all' ? 'Any' : state.filters.type;
-  $('profileSubtitle').textContent = state.filters.city === 'all' ? 'Looking across Vietnam' : `Looking in ${cityLabels[state.filters.city]}`;
+  $('profileCities').textContent = state.filters.city === 'all' ? t('all') : cityLabel(state.filters.city);
+  $('profileType').textContent = typeLabel(state.filters.type);
+  $('profileSubtitle').textContent = state.filters.city === 'all' ? t('searchingAll') : t('searchingCity', { city: cityLabel(state.filters.city) });
+  $('profileLanguageValue').textContent = activeLanguage.toUpperCase();
 }
 
 function renderCounters() {
@@ -847,35 +1157,35 @@ function activeDetail() {
 function detailSpecItems(home) {
   const specs = displaySpecs(home);
   const result = [
-    [money(home.price), 'monthly'],
-    [home.type === 'villa' ? 'Villa' : 'Apartment', 'type'],
-    [`${fitScore(home)}%`, 'fit'],
+    [money(home.price), t('monthCaption')],
+    [typeLabel(home.type), t('type')],
+    [`${fitScore(home)}%`, t('fit')],
   ];
   specs.forEach((spec) => {
     const parts = String(spec).split(/\s+/);
-    result.push([parts.slice(0, 2).join(' '), parts.slice(2).join(' ') || 'detail']);
+    result.push([parts.slice(0, 2).join(' '), parts.slice(2).join(' ') || t('details')]);
   });
   return result.slice(0, 6);
 }
 
-function openDetail(home = currentHome()) {
+function openDetail(home = currentHome(), { track = true } = {}) {
   if (!home) return;
   state.activeDetailId = home.id;
-  void recordAction('open_detail', home.id, { screen: state.screen });
+  if (track) void recordAction('open_detail', home.id, { screen: state.screen });
   state.detailPhotoIndex = photoIndex(home);
   renderDetailPhoto(home);
   $('detailPrice').textContent = money(home.price);
   $('detailTitle').textContent = home.title;
   $('detailArea').textContent = home.area;
   $('detailScore').textContent = String(fitScore(home));
-  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="Show photo ${index + 1}"><img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)} photo ${index + 1}" /></button>`).join('');
+  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(photo)}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
   $('detailAbout').textContent = home.about;
   const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
   $('detailAmenities').innerHTML = (amenities.length ? amenities : ['Facebook Marketplace', home.source]).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('');
   $('detailPrimaryBtn').textContent = state.favorites.has(home.id)
-    ? (contactsLocked() ? 'Unlock contacts' : 'Open original listing')
-    : 'Add to shortlist';
+    ? (contactsLocked() ? t('openContacts') : t('openOriginal'))
+    : t('addFavorite');
   $('detailOverlay').classList.add('is-open');
   $('detailOverlay').setAttribute('aria-hidden', 'false');
 }
@@ -916,7 +1226,7 @@ function renderPhotoViewer() {
   const index = clamp(Number(state.viewerPhotoIndex) || 0, 0, home.photos.length - 1);
   state.viewerPhotoIndex = index;
   $('viewerImage').src = home.photos[index];
-  $('viewerImage').alt = `${home.title} photo ${index + 1}`;
+  $('viewerImage').alt = t('viewerPhotoAlt', { title: home.title, number: index + 1 });
   $('viewerCount').textContent = `${index + 1} / ${home.photos.length}`;
 }
 
@@ -938,12 +1248,13 @@ function showPaywall(reason = 'views') {
   const supportUrl = state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL || 'https://t.me/teamgenius_support';
   $('paywallSubscribeBtn').dataset.url = supportUrl;
   const contactReason = reason === 'contacts' || contactsLocked();
-  $('paywallTitle').textContent = contactReason ? 'Контакты доступны по подписке' : '30 вариантов уже посмотрели';
+  $('paywallTitle').textContent = contactReason ? t('paywallContactsTitle') : t('paywallViewsTitle');
   $('paywallText').textContent = contactReason
-    ? 'Чтобы получить доступ к контактам и оригинальным объявлениям, оплатите подписку. Напишите нам в Telegram, и мы подключим доступ вручную.'
-    : 'Дальше открываем доступ вручную: напишите нам в Telegram, и мы подключим подписку.';
+    ? t('paywallContactsText')
+    : t('paywallViewsText');
   $('paywallMeter').style.display = contactReason ? 'none' : '';
   $('paywallNote').style.display = contactReason ? 'none' : '';
+  updatePaywallNote();
   $('paywallOverlay').classList.add('is-open');
   $('paywallOverlay').setAttribute('aria-hidden', 'false');
 }
@@ -988,8 +1299,8 @@ async function saveDetail() {
   void recordAction('favorite', home.id, { source: 'detail' });
   saveState();
   renderCounters();
-  $('detailPrimaryBtn').textContent = contactsLocked() ? 'Unlock contacts' : 'Open original listing';
-  toast('Added to shortlist');
+  $('detailPrimaryBtn').textContent = contactsLocked() ? t('openContacts') : t('openOriginal');
+  toast(t('addedToShortlist'));
 }
 
 async function loadHomes() {
@@ -1048,7 +1359,7 @@ function bindFilters() {
     saveState();
     void recordSearch();
     setScreen('discover');
-    toast('Filters applied');
+    toast(t('filtersApplied'));
   });
 }
 
@@ -1061,6 +1372,9 @@ function bind() {
   $('resetDeckBtn').addEventListener('click', () => {
     resetQueue({ clearSeen: true });
     render();
+  });
+  $('languageToggleBtn').addEventListener('click', () => {
+    setLanguage(activeLanguage === 'ru' ? 'en' : 'ru');
   });
 
   $('shortlist').addEventListener('click', (event) => {
@@ -1138,6 +1452,7 @@ async function init() {
     // ignore Telegram SDK errors outside Telegram.
   }
   bind();
+  applyI18n();
   renderFilters();
   await loadSession();
   await loadHomes();
