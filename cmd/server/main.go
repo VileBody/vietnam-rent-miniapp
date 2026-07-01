@@ -85,6 +85,7 @@ type AppUser struct {
 	LastName       string `json:"lastName,omitempty"`
 	LanguageCode   string `json:"languageCode,omitempty"`
 	IsSubscribed   bool   `json:"isSubscribed"`
+	PaywallVariant string `json:"paywallVariant"`
 }
 
 type TelegramInitUser struct {
@@ -147,7 +148,10 @@ type PaywallUsage struct {
 }
 
 type SubscriptionInfo struct {
-	SupportURL string `json:"supportUrl"`
+	SupportURL       string `json:"supportUrl"`
+	PaywallVariant   string `json:"paywallVariant"`
+	ContactsLocked   bool   `json:"contactsLocked"`
+	ContactPaywalled bool   `json:"contactPaywalled"`
 }
 
 type EventRequest struct {
@@ -160,6 +164,11 @@ type SearchRequest struct {
 	Filters      map[string]any `json:"filters"`
 	ResultsCount int            `json:"resultsCount"`
 }
+
+const (
+	paywallVariantView    = "view_paywall"
+	paywallVariantContact = "contact_paywall"
+)
 
 func main() {
 	ctx := context.Background()
@@ -429,6 +438,8 @@ ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_until timestamptz;
 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_note text;
 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS subscription_source text;
 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS last_auth_at timestamptz;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS paywall_variant text NOT NULL DEFAULT 'view_paywall';
+UPDATE app_users SET paywall_variant = 'view_paywall' WHERE paywall_variant IS NULL OR paywall_variant = '';
 
 CREATE TABLE IF NOT EXISTS user_favorites (
   user_id bigint NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -821,6 +832,31 @@ func subscriptionSupportURL() string {
 	return getenv("TELEGRAM_SUBSCRIPTION_URL", "https://t.me/teamgenius_support")
 }
 
+func normalizePaywallVariant(value string) string {
+	switch strings.TrimSpace(value) {
+	case paywallVariantContact:
+		return paywallVariantContact
+	default:
+		return paywallVariantView
+	}
+}
+
+func paywallVariantForSeed(seed string) string {
+	sum := sha256.Sum256([]byte(seed))
+	if sum[0]%2 == 0 {
+		return paywallVariantContact
+	}
+	return paywallVariantView
+}
+
+func contactPaywalled(user AppUser) bool {
+	return !user.IsSubscribed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantContact
+}
+
+func viewPaywalled(user AppUser, viewed int, limit int) bool {
+	return !user.IsSubscribed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantView && viewed >= limit
+}
+
 func telegramMiniAppURL() string {
 	return getenv("TELEGRAM_MINIAPP_URL", "https://vietnam.teamgenius.ru/")
 }
@@ -1097,10 +1133,10 @@ func (s *Server) upsertTelegramUser(ctx context.Context, tgUser TelegramInitUser
 	row := s.db.QueryRow(ctx, `
 INSERT INTO app_users (
   telegram_user_id, username, first_name, last_name, language_code, photo_url,
-  last_auth_at, last_seen_at
+  paywall_variant, last_auth_at, last_seen_at
 ) VALUES (
   @telegram_user_id, @username, @first_name, @last_name, @language_code, @photo_url,
-  now(), now()
+  @paywall_variant, now(), now()
 )
 ON CONFLICT (telegram_user_id) DO UPDATE SET
   username = excluded.username,
@@ -1110,7 +1146,7 @@ ON CONFLICT (telegram_user_id) DO UPDATE SET
   photo_url = excluded.photo_url,
   last_auth_at = now(),
   last_seen_at = now()
-RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall');
 `, pgx.NamedArgs{
 		"telegram_user_id": tgUser.ID,
 		"username":         nullString(tgUser.Username),
@@ -1118,19 +1154,20 @@ RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''),
 		"last_name":        nullString(tgUser.LastName),
 		"language_code":    nullString(tgUser.LanguageCode),
 		"photo_url":        nullString(tgUser.PhotoURL),
+		"paywall_variant":  paywallVariantForSeed(fmt.Sprintf("tg:%d", tgUser.ID)),
 	})
 	return scanAppUser(row)
 }
 
 func (s *Server) upsertClientUser(ctx context.Context, clientID string) (AppUser, error) {
 	row := s.db.QueryRow(ctx, `
-INSERT INTO app_users (client_id, first_name, last_auth_at, last_seen_at)
-VALUES (@client_id, 'Guest', now(), now())
+INSERT INTO app_users (client_id, first_name, paywall_variant, last_auth_at, last_seen_at)
+VALUES (@client_id, 'Guest', @paywall_variant, now(), now())
 ON CONFLICT (client_id) DO UPDATE SET
   last_auth_at = now(),
   last_seen_at = now()
-RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
-`, pgx.NamedArgs{"client_id": clientID})
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall');
+`, pgx.NamedArgs{"client_id": clientID, "paywall_variant": paywallVariantForSeed("client:" + clientID)})
 	return scanAppUser(row)
 }
 
@@ -1142,19 +1179,27 @@ func (s *Server) mergeClientUserIntoTelegram(ctx context.Context, user AppUser, 
 	defer tx.Rollback(ctx)
 
 	var guestID int64
+	var guestPaywallVariant string
 	err = tx.QueryRow(ctx, `
-SELECT id
+SELECT id, coalesce(paywall_variant, 'view_paywall')
 FROM app_users
 WHERE client_id = @client_id
   AND telegram_user_id IS NULL
   AND id <> @telegram_user_id
 FOR UPDATE;
-`, pgx.NamedArgs{"client_id": clientID, "telegram_user_id": user.ID}).Scan(&guestID)
+`, pgx.NamedArgs{"client_id": clientID, "telegram_user_id": user.ID}).Scan(&guestID, &guestPaywallVariant)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return AppUser{}, err
 	}
 
 	if guestID != 0 {
+		if _, err := tx.Exec(ctx, `
+UPDATE app_users
+SET paywall_variant = @paywall_variant
+WHERE id = @target_user_id;
+`, pgx.NamedArgs{"target_user_id": user.ID, "paywall_variant": normalizePaywallVariant(guestPaywallVariant)}); err != nil {
+			return AppUser{}, err
+		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO user_listing_views (user_id, listing_id, first_viewed_at, last_viewed_at, view_count)
 SELECT @target_user_id, listing_id, first_viewed_at, last_viewed_at, view_count
@@ -1197,12 +1242,12 @@ WHERE id = @user_id
     WHERE client_id = @client_id
       AND id <> @user_id
   )
-RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()));
+RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall');
 `, pgx.NamedArgs{"client_id": clientID, "user_id": user.ID})
 	merged, err := scanAppUser(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		merged, err = scanAppUser(tx.QueryRow(ctx, `
-SELECT id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now()))
+SELECT id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall')
 FROM app_users
 WHERE id = @user_id;
 `, pgx.NamedArgs{"user_id": user.ID}))
@@ -1219,10 +1264,11 @@ WHERE id = @user_id;
 func scanAppUser(row pgx.Row) (AppUser, error) {
 	var user AppUser
 	var telegramID sql.NullInt64
-	err := row.Scan(&user.ID, &telegramID, &user.ClientID, &user.Username, &user.FirstName, &user.LastName, &user.LanguageCode, &user.IsSubscribed)
+	err := row.Scan(&user.ID, &telegramID, &user.ClientID, &user.Username, &user.FirstName, &user.LastName, &user.LanguageCode, &user.IsSubscribed, &user.PaywallVariant)
 	if telegramID.Valid {
 		user.TelegramUserID = &telegramID.Int64
 	}
+	user.PaywallVariant = normalizePaywallVariant(user.PaywallVariant)
 	return user, err
 }
 
@@ -1242,9 +1288,14 @@ func (s *Server) sessionForUser(ctx context.Context, user AppUser) (UserSession,
 			Viewed:    viewed,
 			FreeLimit: limit,
 			Remaining: remaining,
-			Paywalled: !user.IsSubscribed && viewed >= limit,
+			Paywalled: viewPaywalled(user, viewed, limit),
 		},
-		Subscription: SubscriptionInfo{SupportURL: subscriptionSupportURL()},
+		Subscription: SubscriptionInfo{
+			SupportURL:       subscriptionSupportURL(),
+			PaywallVariant:   normalizePaywallVariant(user.PaywallVariant),
+			ContactsLocked:   contactPaywalled(user),
+			ContactPaywalled: contactPaywalled(user),
+		},
 	}, nil
 }
 
@@ -1261,7 +1312,7 @@ SELECT EXISTS (SELECT 1 FROM user_listing_views WHERE user_id = @user_id AND lis
 `, pgx.NamedArgs{"user_id": user.ID, "listing_id": listingID}).Scan(&alreadyViewed); err != nil {
 		return false, err
 	}
-	if !alreadyViewed && !user.IsSubscribed {
+	if !alreadyViewed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantView && !user.IsSubscribed {
 		count, err := s.viewedCount(ctx, user.ID)
 		if err != nil {
 			return false, err
@@ -1371,6 +1422,15 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if (payload.Action == "open_facebook" || payload.Action == "open_contact") && payload.ListingID != "" && contactPaywalled(user) {
+		session, err := s.sessionForUser(ctx, user)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusPaymentRequired, map[string]any{"error": "contacts require subscription", "session": session})
+		return
+	}
 
 	if err := s.recordAction(ctx, user.ID, payload); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -1439,6 +1499,12 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
 	where := []string{"true"}
 	args := pgx.NamedArgs{}
 
@@ -1484,12 +1550,19 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	maskListingsForUser(listings, user)
 	writeJSON(w, http.StatusOK, listings)
 }
 
 func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
+
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
 
 	row := s.db.QueryRow(ctx, listingSelectSQL+" WHERE id = @id", pgx.NamedArgs{"id": r.PathValue("id")})
 	listing, err := scanListing(row)
@@ -1501,6 +1574,7 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	maskListingForUser(&listing, user)
 	writeJSON(w, http.StatusOK, listing)
 }
 
@@ -1629,6 +1703,27 @@ func scanListings(rows pgx.Rows) ([]Listing, error) {
 		return nil, err
 	}
 	return listings, nil
+}
+
+func maskListingsForUser(listings []Listing, user AppUser) {
+	if !contactPaywalled(user) {
+		return
+	}
+	for index := range listings {
+		maskListingForUser(&listings[index], user)
+	}
+}
+
+func maskListingForUser(listing *Listing, user AppUser) {
+	if !contactPaywalled(user) {
+		return
+	}
+	listing.Contact = Contact{
+		Name:  "VietNest Plus",
+		Line:  "Contacts available after subscription",
+		Value: "",
+	}
+	listing.FBURL = ""
 }
 
 func scanListing(row scanner) (Listing, error) {

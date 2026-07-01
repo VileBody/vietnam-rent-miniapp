@@ -573,14 +573,28 @@ function isSessionPaywalled() {
   return Boolean(state.session?.usage?.paywalled);
 }
 
+function paywallVariant() {
+  return state.session?.subscription?.paywallVariant || state.session?.user?.paywallVariant || 'view_paywall';
+}
+
+function isViewPaywallVariant() {
+  return paywallVariant() !== 'contact_paywall';
+}
+
+function contactsLocked() {
+  return Boolean(state.session?.subscription?.contactsLocked || state.session?.subscription?.contactPaywalled);
+}
+
 function wouldExceedViewLimit(home) {
   const usage = state.session?.usage;
+  if (!isViewPaywallVariant()) return false;
   if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return false;
   return Boolean(usage.paywalled) || Number(usage.remaining) <= 0;
 }
 
 function consumeViewOptimistically(home) {
   const usage = state.session?.usage;
+  if (!isViewPaywallVariant()) return;
   if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return;
   const nextUsage = {
     ...usage,
@@ -859,7 +873,9 @@ function openDetail(home = currentHome()) {
   $('detailAbout').textContent = home.about;
   const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
   $('detailAmenities').innerHTML = (amenities.length ? amenities : ['Facebook Marketplace', home.source]).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('');
-  $('detailPrimaryBtn').textContent = state.favorites.has(home.id) ? 'Open original listing' : 'Add to shortlist';
+  $('detailPrimaryBtn').textContent = state.favorites.has(home.id)
+    ? (contactsLocked() ? 'Unlock contacts' : 'Open original listing')
+    : 'Add to shortlist';
   $('detailOverlay').classList.add('is-open');
   $('detailOverlay').setAttribute('aria-hidden', 'false');
 }
@@ -917,10 +933,17 @@ function closePhotoViewer() {
   $('photoViewer').setAttribute('aria-hidden', 'true');
 }
 
-function showPaywall() {
+function showPaywall(reason = 'views') {
   state.paywallOpen = true;
   const supportUrl = state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL || 'https://t.me/teamgenius_support';
   $('paywallSubscribeBtn').dataset.url = supportUrl;
+  const contactReason = reason === 'contacts' || contactsLocked();
+  $('paywallTitle').textContent = contactReason ? 'Контакты доступны по подписке' : '30 вариантов уже посмотрели';
+  $('paywallText').textContent = contactReason
+    ? 'Чтобы получить доступ к контактам и оригинальным объявлениям, оплатите подписку. Напишите нам в Telegram, и мы подключим доступ вручную.'
+    : 'Дальше открываем доступ вручную: напишите нам в Telegram, и мы подключим подписку.';
+  $('paywallMeter').style.display = contactReason ? 'none' : '';
+  $('paywallNote').style.display = contactReason ? 'none' : '';
   $('paywallOverlay').classList.add('is-open');
   $('paywallOverlay').setAttribute('aria-hidden', 'false');
 }
@@ -933,7 +956,7 @@ function closePaywall() {
 
 function openSubscriptionChat() {
   const url = $('paywallSubscribeBtn').dataset.url || state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL;
-  void recordAction('paywall_click', '', { viewed: state.session?.usage?.viewed || 0 });
+  void recordAction('paywall_click', '', { viewed: state.session?.usage?.viewed || 0, variant: paywallVariant() });
   openUrl(url);
 }
 
@@ -943,27 +966,35 @@ function closeDetail() {
   closePhotoViewer();
 }
 
+function openListingContact(home, source) {
+  if (!home) return;
+  if (contactsLocked() || !home.fbUrl) {
+    showPaywall('contacts');
+    void recordAction('open_contact', home.id, { source, locked: true });
+    return;
+  }
+  void recordAction('open_facebook', home.id, { source });
+  openUrl(home.fbUrl);
+}
+
 async function saveDetail() {
   const home = activeDetail();
   if (!home) return;
   if (state.favorites.has(home.id)) {
-    void recordAction('open_facebook', home.id, { source: 'detail_primary' });
-    openUrl(home.fbUrl);
+    openListingContact(home, 'detail_primary');
     return;
   }
   state.favorites.add(home.id);
   void recordAction('favorite', home.id, { source: 'detail' });
   saveState();
   renderCounters();
-  $('detailPrimaryBtn').textContent = 'Open original listing';
+  $('detailPrimaryBtn').textContent = contactsLocked() ? 'Unlock contacts' : 'Open original listing';
   toast('Added to shortlist');
 }
 
 async function loadHomes() {
   try {
-    const response = await fetch(`${API_BASE}/api/listings`);
-    if (!response.ok) throw new Error(`API returned ${response.status}`);
-    const data = await response.json();
+    const data = await api('/api/listings');
     if (Array.isArray(data) && data.length) homes = data.map(normalizeHome);
   } catch (error) {
     console.warn('Using fallback listings:', error);
@@ -1060,10 +1091,7 @@ function bind() {
   $('detailPrimaryBtn').addEventListener('click', saveDetail);
   $('openFbBtn').addEventListener('click', () => {
     const home = activeDetail();
-    if (home) {
-      void recordAction('open_facebook', home.id, { source: 'detail_secondary' });
-      openUrl(home.fbUrl);
-    }
+    openListingContact(home, 'detail_secondary');
   });
   $('paywallCloseBtn').addEventListener('click', closePaywall);
   $('paywallSubscribeBtn').addEventListener('click', openSubscriptionChat);
