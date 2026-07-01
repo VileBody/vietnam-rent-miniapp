@@ -53,6 +53,16 @@ type Contact struct {
 	Value string `json:"value"`
 }
 
+type ListingTranslationFields struct {
+	Title     string   `json:"title"`
+	Area      string   `json:"area"`
+	About     string   `json:"about"`
+	Specs     []string `json:"specs"`
+	Details   []string `json:"details"`
+	Tags      []string `json:"tags"`
+	Amenities []string `json:"amenities"`
+}
+
 type ScrapeSource struct {
 	ID              int64          `json:"id"`
 	CitySlug        string         `json:"citySlug"`
@@ -363,6 +373,17 @@ CREATE TABLE IF NOT EXISTS raw_marketplace_items (
   UNIQUE (source, external_id)
 );
 
+CREATE TABLE IF NOT EXISTS listing_translations (
+  listing_id text NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  locale text NOT NULL,
+  fields jsonb NOT NULL DEFAULT '{}',
+  provider text,
+  model text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (listing_id, locale)
+);
+
 CREATE TABLE IF NOT EXISTS listing_photos (
   id bigserial PRIMARY KEY,
   listing_id text NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
@@ -487,6 +508,7 @@ CREATE INDEX IF NOT EXISTS listings_amenities_idx ON listings USING gin (ameniti
 CREATE INDEX IF NOT EXISTS listings_normalized_idx ON listings USING gin (normalized);
 CREATE INDEX IF NOT EXISTS listings_title_trgm_idx ON listings USING gin (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS listings_about_trgm_idx ON listings USING gin (about gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS listing_translations_fields_idx ON listing_translations USING gin (fields);
 CREATE INDEX IF NOT EXISTS scrape_sources_location_idx ON scrape_sources (location_id);
 CREATE INDEX IF NOT EXISTS scrape_sources_enabled_idx ON scrape_sources (enabled);
 CREATE UNIQUE INDEX IF NOT EXISTS scrape_sources_name_unique_idx ON scrape_sources (name);
@@ -1550,6 +1572,10 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	if err := s.applyListingTranslations(ctx, listings, requestLocale(r)); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
 	maskListingsForUser(listings, user)
 	writeJSON(w, http.StatusOK, listings)
 }
@@ -1574,6 +1600,12 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	listingSlice := []Listing{listing}
+	if err := s.applyListingTranslations(ctx, listingSlice, requestLocale(r)); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	listing = listingSlice[0]
 	maskListingForUser(&listing, user)
 	writeJSON(w, http.StatusOK, listing)
 }
@@ -1703,6 +1735,81 @@ func scanListings(rows pgx.Rows) ([]Listing, error) {
 		return nil, err
 	}
 	return listings, nil
+}
+
+func requestLocale(r *http.Request) string {
+	locale := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("lang")))
+	if locale == "" {
+		locale = strings.ToLower(strings.TrimSpace(r.Header.Get("X-Vietnest-Language")))
+	}
+	switch locale {
+	case "ru", "ru-ru":
+		return "ru"
+	default:
+		return ""
+	}
+}
+
+func (s *Server) applyListingTranslations(ctx context.Context, listings []Listing, locale string) error {
+	if locale == "" || len(listings) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(listings))
+	indexByID := make(map[string]int, len(listings))
+	for index, listing := range listings {
+		ids = append(ids, listing.ID)
+		indexByID[listing.ID] = index
+	}
+
+	rows, err := s.db.Query(ctx, `
+SELECT listing_id, fields
+FROM listing_translations
+WHERE locale = @locale AND listing_id = ANY(@ids);
+`, pgx.NamedArgs{"locale": locale, "ids": ids})
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var listingID string
+		var rawFields []byte
+		if err := rows.Scan(&listingID, &rawFields); err != nil {
+			return err
+		}
+		index, ok := indexByID[listingID]
+		if !ok {
+			continue
+		}
+		var fields ListingTranslationFields
+		if err := json.Unmarshal(rawFields, &fields); err != nil {
+			return fmt.Errorf("decode translation %s/%s: %w", listingID, locale, err)
+		}
+		applyListingTranslation(&listings[index], fields)
+	}
+	return rows.Err()
+}
+
+func applyListingTranslation(listing *Listing, fields ListingTranslationFields) {
+	if fields.Title != "" {
+		listing.Title = fields.Title
+	}
+	if fields.Area != "" {
+		listing.Area = fields.Area
+	}
+	if fields.About != "" {
+		listing.About = fields.About
+	}
+	if len(fields.Specs) > 0 {
+		listing.Specs = fields.Specs
+	}
+	if len(fields.Details) > 0 {
+		listing.Details = fields.Details
+	}
+	if len(fields.Tags) > 0 {
+		listing.Tags = fields.Tags
+	}
 }
 
 func maskListingsForUser(listings []Listing, user AppUser) {

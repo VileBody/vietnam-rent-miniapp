@@ -457,7 +457,15 @@ function setLanguage(language) {
   }
   applyI18n();
   render();
-  if ($('detailOverlay').classList.contains('is-open')) openDetail(activeDetail(), { track: false });
+  const detailWasOpen = $('detailOverlay').classList.contains('is-open');
+  const detailId = state.activeDetailId;
+  void loadHomes().then(() => {
+    resetQueue();
+    render();
+    if (detailWasOpen) {
+      openDetail(homes.find((home) => home.id === detailId) || activeDetail(), { track: false });
+    }
+  });
   if ($('photoViewer').classList.contains('is-open')) renderPhotoViewer();
   if (state.paywallOpen) showPaywall(contactsLocked() ? 'contacts' : 'views');
 }
@@ -479,6 +487,7 @@ function clientId() {
 function authHeaders(extra = {}) {
   const headers = {
     'X-Vietnest-Client-Id': clientId(),
+    'X-Vietnest-Language': activeLanguage,
     ...extra,
   };
   if (tg?.initData) headers['X-Telegram-Init-Data'] = tg.initData;
