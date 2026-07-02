@@ -531,6 +531,10 @@ function applySession(session, { openPaywall = true } = {}) {
   if (openPaywall && usage.paywalled && state.screen === 'discover') showPaywall();
 }
 
+function paywallEnabled() {
+  return window.VIETNEST_PAYWALL_ENABLED === true;
+}
+
 async function loadSession() {
   try {
     applySession(await api('/api/session'));
@@ -991,6 +995,7 @@ function advance(home) {
 }
 
 function isSessionPaywalled() {
+  if (!paywallEnabled()) return false;
   return Boolean(state.session?.usage?.paywalled);
 }
 
@@ -1003,10 +1008,12 @@ function isViewPaywallVariant() {
 }
 
 function contactsLocked() {
+  if (!paywallEnabled()) return false;
   return Boolean(state.session?.subscription?.contactsLocked || state.session?.subscription?.contactPaywalled);
 }
 
 function wouldExceedViewLimit(home) {
+  if (!paywallEnabled()) return false;
   if (home?.kind === 'ad') return false;
   const usage = state.session?.usage;
   if (!isViewPaywallVariant()) return false;
@@ -1015,6 +1022,7 @@ function wouldExceedViewLimit(home) {
 }
 
 function consumeViewOptimistically(home) {
+  if (!paywallEnabled()) return;
   if (home?.kind === 'ad') return;
   const usage = state.session?.usage;
   if (!isViewPaywallVariant()) return;
@@ -1391,6 +1399,7 @@ function openCardInfo() {
 }
 
 function showPaywall(reason = 'views') {
+  if (!paywallEnabled()) return;
   state.paywallOpen = true;
   const supportUrl = state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL || 'https://t.me/teamgenius_support';
   $('paywallSubscribeBtn').dataset.url = supportUrl;

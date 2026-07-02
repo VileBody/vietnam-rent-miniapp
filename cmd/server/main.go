@@ -2345,6 +2345,7 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "window.VIETNEST_UI_THEME = %s;\n", theme)
 		fmt.Fprintf(w, "window.VIETNEST_FREE_VIEW_LIMIT = %d;\n", freeViewLimit())
+		fmt.Fprintf(w, "window.VIETNEST_PAYWALL_ENABLED = %t;\n", paywallEnabled())
 		supportURL, err := json.Marshal(subscriptionSupportURL())
 		if err != nil {
 			http.Error(w, "failed to render config", http.StatusInternalServerError)
