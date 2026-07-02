@@ -229,6 +229,12 @@ func main() {
 	mux.HandleFunc("POST /api/events", srv.handleEvent)
 	mux.HandleFunc("POST /api/searches", srv.handleSearch)
 	mux.HandleFunc("POST /api/telegram/webhook", srv.handleTelegramWebhook)
+	mux.HandleFunc("GET /api/ads/tgad/webhook", srv.handleTGAdWebhook)
+	mux.HandleFunc("POST /api/ads/tgad/webhook", srv.handleTGAdWebhook)
+	mux.HandleFunc("GET /api/ads/tads/webhook", srv.handleTGAdWebhook)
+	mux.HandleFunc("POST /api/ads/tads/webhook", srv.handleTGAdWebhook)
+	mux.HandleFunc("GET /api/ads/tads/fullscreen-view", srv.handleTGAdWebhook)
+	mux.HandleFunc("POST /api/ads/tads/fullscreen-view", srv.handleTGAdWebhook)
 	mux.HandleFunc("GET /api/feed", srv.handleFeed)
 	mux.HandleFunc("GET /api/listings", srv.handleListings)
 	mux.HandleFunc("GET /api/listings/{id}", srv.handleListing)
@@ -535,6 +541,24 @@ CREATE TABLE IF NOT EXISTS ads (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS ad_webhook_events (
+  id bigserial PRIMARY KEY,
+  provider text NOT NULL,
+  telegram_id text,
+  widget_id text,
+  event_name text NOT NULL DEFAULT 'webhook',
+  method text NOT NULL,
+  remote_addr text NOT NULL DEFAULT '',
+  query jsonb NOT NULL DEFAULT '{}',
+  headers jsonb NOT NULL DEFAULT '{}',
+  body jsonb NOT NULL DEFAULT '{}',
+  raw_body text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ad_webhook_events ADD COLUMN IF NOT EXISTS telegram_id text;
+ALTER TABLE ad_webhook_events ADD COLUMN IF NOT EXISTS widget_id text;
+
 CREATE INDEX IF NOT EXISTS listings_city_idx ON listings (city);
 CREATE INDEX IF NOT EXISTS listings_home_type_idx ON listings (home_type);
 CREATE INDEX IF NOT EXISTS listings_price_idx ON listings (price_usd);
@@ -566,6 +590,10 @@ CREATE INDEX IF NOT EXISTS user_views_user_idx ON user_listing_views (user_id, l
 CREATE INDEX IF NOT EXISTS user_searches_user_idx ON user_searches (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ads_status_placement_idx ON ads (status, placement, weight DESC);
 CREATE INDEX IF NOT EXISTS ads_targeting_idx ON ads USING gin (targeting);
+CREATE INDEX IF NOT EXISTS ad_webhook_events_provider_created_idx ON ad_webhook_events (provider, created_at DESC);
+CREATE INDEX IF NOT EXISTS ad_webhook_events_telegram_idx ON ad_webhook_events (telegram_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ad_webhook_events_widget_idx ON ad_webhook_events (widget_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ad_webhook_events_body_idx ON ad_webhook_events USING gin (body);
 `)
 	return err
 }
@@ -1498,6 +1526,121 @@ func nullString(value string) *string {
 	return &value
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func firstQueryValue(values url.Values, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(values.Get(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func defaultAdWebhookEvent(path string) string {
+	path = strings.ToLower(path)
+	if strings.Contains(path, "fullscreen-view") {
+		return "fullscreen_view"
+	}
+	return "webhook"
+}
+
+func valuesToMap(values url.Values) map[string]any {
+	result := make(map[string]any, len(values))
+	for key, list := range values {
+		if len(list) == 1 {
+			result[key] = list[0]
+			continue
+		}
+		result[key] = list
+	}
+	return result
+}
+
+func payloadString(payload any, keys ...string) string {
+	data, ok := payload.(map[string]any)
+	if !ok {
+		return ""
+	}
+	for _, key := range keys {
+		value, ok := data[key]
+		if !ok || value == nil {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			if strings.TrimSpace(typed) != "" {
+				return strings.TrimSpace(typed)
+			}
+		case float64:
+			return strconv.FormatInt(int64(typed), 10)
+		case int:
+			return strconv.Itoa(typed)
+		case int64:
+			return strconv.FormatInt(typed, 10)
+		case json.Number:
+			return typed.String()
+		default:
+			text := strings.TrimSpace(fmt.Sprint(typed))
+			if text != "" {
+				return text
+			}
+		}
+	}
+	return ""
+}
+
+func webhookBody(r *http.Request) (any, string, error) {
+	if r.Body == nil {
+		return map[string]any{}, "", nil
+	}
+	rawBytes, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return nil, "", fmt.Errorf("read webhook body: %w", err)
+	}
+	rawBody := string(rawBytes)
+	if strings.TrimSpace(rawBody) == "" {
+		return map[string]any{}, rawBody, nil
+	}
+
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if strings.Contains(contentType, "application/json") {
+		var payload any
+		if err := json.Unmarshal(rawBytes, &payload); err != nil {
+			return nil, rawBody, fmt.Errorf("decode json webhook body: %w", err)
+		}
+		if payload == nil {
+			return map[string]any{}, rawBody, nil
+		}
+		return payload, rawBody, nil
+	}
+	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		values, err := url.ParseQuery(rawBody)
+		if err != nil {
+			return nil, rawBody, fmt.Errorf("decode form webhook body: %w", err)
+		}
+		return valuesToMap(values), rawBody, nil
+	}
+	return map[string]any{"raw": rawBody}, rawBody, nil
+}
+
+func clientRemoteAddr(r *http.Request) string {
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		return realIP
+	}
+	return r.RemoteAddr
+}
+
 func writeAuthError(w http.ResponseWriter, err error) {
 	writeJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
 }
@@ -1686,6 +1829,104 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, mixFeed(listings, ads, adFrequency()))
+}
+
+func (s *Server) handleTGAdWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	provider := "tgad"
+	if strings.Contains(strings.ToLower(r.URL.Path), "/tads/") {
+		provider = "tads"
+	}
+
+	if secret := strings.TrimSpace(os.Getenv("TGAD_WEBHOOK_SECRET")); secret != "" {
+		received := strings.TrimSpace(r.URL.Query().Get("secret"))
+		if received == "" {
+			received = strings.TrimSpace(r.Header.Get("X-TGAd-Webhook-Secret"))
+		}
+		if received == "" {
+			received = strings.TrimSpace(r.Header.Get("X-TGAD-Secret"))
+		}
+		if received != secret {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid tgad webhook secret"})
+			return
+		}
+	}
+
+	query := valuesToMap(r.URL.Query())
+	body, rawBody, err := webhookBody(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	headers := map[string]any{
+		"user_agent":       r.UserAgent(),
+		"referer":          r.Referer(),
+		"x_forwarded_for":  r.Header.Get("X-Forwarded-For"),
+		"x_real_ip":        r.Header.Get("X-Real-IP"),
+		"content_type":     r.Header.Get("Content-Type"),
+		"content_length":   r.ContentLength,
+		"tgad_request_id":  firstNonEmpty(r.Header.Get("X-Request-ID"), r.Header.Get("X-TGAd-Request-ID")),
+		"tgad_signature":   r.Header.Get("X-TGAd-Signature"),
+		"tgad_event":       r.Header.Get("X-TGAd-Event"),
+		"telegram_web_app": r.Header.Get("X-Telegram-Web-App"),
+	}
+
+	queryJSON, err := json.Marshal(query)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	headersJSON, err := json.Marshal(headers)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	telegramID := firstNonEmpty(
+		firstQueryValue(r.URL.Query(), "telegram_id", "telegramId", "tg_id", "tgId"),
+		payloadString(body, "telegram_id", "telegramId", "tg_id", "tgId"),
+	)
+	widgetID := firstNonEmpty(
+		firstQueryValue(r.URL.Query(), "widget_id", "widgetId", "widget", "placement_id", "placementId"),
+		payloadString(body, "widget_id", "widgetId", "widget", "placement_id", "placementId"),
+	)
+	eventName := firstNonEmpty(
+		firstQueryValue(r.URL.Query(), "event", "event_name", "eventName", "action", "type", "status"),
+		payloadString(body, "event", "event_name", "eventName", "action", "type", "status"),
+		r.Header.Get("X-TGAd-Event"),
+		defaultAdWebhookEvent(r.URL.Path),
+	)
+
+	var id int64
+	err = s.db.QueryRow(ctx, `
+INSERT INTO ad_webhook_events (provider, telegram_id, widget_id, event_name, method, remote_addr, query, headers, body, raw_body)
+VALUES (@provider, nullif(@telegram_id, ''), nullif(@widget_id, ''), @event_name, @method, @remote_addr, @query::jsonb, @headers::jsonb, @body::jsonb, @raw_body)
+RETURNING id;
+`, pgx.NamedArgs{
+		"provider":    provider,
+		"telegram_id": telegramID,
+		"widget_id":   widgetID,
+		"event_name":  eventName,
+		"method":      r.Method,
+		"remote_addr": clientRemoteAddr(r),
+		"query":       string(queryJSON),
+		"headers":     string(headersJSON),
+		"body":        string(bodyJSON),
+		"raw_body":    rawBody,
+	}).Scan(&id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": id})
 }
 
 func (s *Server) listingsForRequest(ctx context.Context, r *http.Request) ([]Listing, int, error) {
