@@ -685,10 +685,13 @@ async function ensureTadsController(widgetId, type) {
   const widgetType = String(type || '').toLowerCase();
   await ensureTadsScript();
   if (!window.tads?.init) throw new Error('TADS script loaded without init API');
-  ensureTadsContainer(widgetId, widgetType !== 'static');
+  const container = ensureTadsContainer(widgetId, widgetType !== 'static');
   window.tads.controllers = window.tads.controllers || {};
   const key = `${widgetId}:${widgetType}`;
-  if (tadsState.controllers[key]) return tadsState.controllers[key];
+  if (tadsState.controllers[key]) {
+    if (widgetType === 'static') tadsState.controllers[key].adContainer = container;
+    return tadsState.controllers[key];
+  }
 
   const controller = window.tads.init({
     widgetId,
@@ -755,6 +758,12 @@ function createTadsStaticHome(slotNumber, feedIndex) {
 
 function isTadsStaticHome(home) {
   return home?.kind === 'tads_static';
+}
+
+function tadsStaticShouldAppearAfter(listingNumber) {
+  if (!tadsTgbWidgetId()) return false;
+  if (listingNumber % tadsTgbFrequency() !== 0) return false;
+  return !tadsFullscreenWidgetId() || listingNumber % tadsFullscreenFrequency() !== 0;
 }
 
 function normalizeHome(raw, feedIndex = 0) {
@@ -895,7 +904,7 @@ function filteredHomes() {
   let adIndex = 0;
   listings.forEach((home, index) => {
     result.push(home);
-    if ((index + 1) % tadsTgbFrequency() === 0) {
+    if (tadsStaticShouldAppearAfter(index + 1)) {
       if (ads.length) {
         const ad = ads[adIndex % ads.length];
         result.push({
@@ -1131,29 +1140,62 @@ function renderDeck() {
   mountTopTadsStaticCard();
 }
 
+function withTimeout(promise, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(label)), timeoutMs);
+    Promise.resolve(promise)
+      .then(resolve, reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
+}
+
+function skipUnavailableTadsStatic(home, reason, error = '') {
+  if (!isTadsStaticHome(home)) return;
+  const current = currentHome();
+  if (current?.id !== home.id) return;
+  state.seen[home.id] = Number(state.seen[home.id] || 0) + 1;
+  state.queue = state.queue.filter((id) => id !== home.id);
+  saveState();
+  void recordAction('tads_static_skip_unavailable', '', {
+    widgetId: home.widgetId,
+    slot: home.id,
+    reason,
+    error,
+  });
+  render();
+}
+
 function mountTopTadsStaticCard() {
   const home = currentHome();
   if (!isTadsStaticHome(home)) return;
   const card = $('deck').querySelector('.home-card[data-depth="0"].is-tads-ad');
-  if (!card || tadsState.mountedStaticSlot === home.id) return;
+  if (!card || card.dataset.tadsMounting === '1') return;
+  if (tadsState.mountedStaticSlot === home.id && card.classList.contains('is-tads-loaded')) return;
+  card.dataset.tadsMounting = '1';
   tadsState.mountedStaticSlot = home.id;
 
   ensureTadsController(home.widgetId, 'STATIC')
-    .then((controller) => controller?.loadAd?.()
-      .then((data) => {
-        const loadedType = String(data?.type || 'static').toLowerCase();
-        if (loadedType !== 'static') return null;
-        return controller.showAd();
-      }))
+    .then((controller) => {
+      if (!controller?.loadAd || !controller?.showAd) throw new Error('TADS static controller is not ready');
+      return withTimeout(controller.loadAd()
+        .then((data) => {
+          const loadedType = String(data?.type || 'static').toLowerCase();
+          if (loadedType !== 'static') return null;
+          return controller.showAd();
+        }), 5500, 'TADS static load timeout');
+    })
     .then(() => {
+      card.dataset.tadsMounting = '0';
       card.classList.add('is-tads-loaded');
       void recordAction('tads_static_loaded', '', { widgetId: home.widgetId, slot: home.id });
     })
     .catch((error) => {
       console.warn('TADS static load failed:', error);
+      card.dataset.tadsMounting = '0';
       card.classList.remove('is-tads-loaded');
       tadsState.mountedStaticSlot = '';
       void recordAction('tads_static_error', '', { widgetId: home.widgetId, slot: home.id, error: String(error?.message || error) });
+      skipUnavailableTadsStatic(home, 'load_failed', String(error?.message || error));
     });
 }
 
