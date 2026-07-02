@@ -35,6 +35,8 @@ spec:
               value: "warm"
             - name: FREE_VIEW_LIMIT
               value: "30"
+            - name: PAYWALL_ENABLED
+              value: "false"
             - name: TELEGRAM_SUBSCRIPTION_URL
               value: "https://t.me/nemelokkk"
             - name: TELEGRAM_MINIAPP_URL

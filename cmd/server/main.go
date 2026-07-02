@@ -850,6 +850,15 @@ func freeViewLimit() int {
 	return value
 }
 
+func paywallEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("PAYWALL_ENABLED"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func subscriptionSupportURL() string {
 	return getenv("TELEGRAM_SUBSCRIPTION_URL", "https://t.me/teamgenius_support")
 }
@@ -872,10 +881,16 @@ func paywallVariantForSeed(seed string) string {
 }
 
 func contactPaywalled(user AppUser) bool {
+	if !paywallEnabled() {
+		return false
+	}
 	return !user.IsSubscribed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantContact
 }
 
 func viewPaywalled(user AppUser, viewed int, limit int) bool {
+	if !paywallEnabled() {
+		return false
+	}
 	return !user.IsSubscribed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantView && viewed >= limit
 }
 
@@ -1334,7 +1349,7 @@ SELECT EXISTS (SELECT 1 FROM user_listing_views WHERE user_id = @user_id AND lis
 `, pgx.NamedArgs{"user_id": user.ID, "listing_id": listingID}).Scan(&alreadyViewed); err != nil {
 		return false, err
 	}
-	if !alreadyViewed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantView && !user.IsSubscribed {
+	if paywallEnabled() && !alreadyViewed && normalizePaywallVariant(user.PaywallVariant) == paywallVariantView && !user.IsSubscribed {
 		count, err := s.viewedCount(ctx, user.ID)
 		if err != nil {
 			return false, err
