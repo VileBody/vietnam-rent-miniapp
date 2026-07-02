@@ -271,6 +271,83 @@ html[data-theme="warm"] .filter-head h2 {
     linear-gradient(135deg, rgba(255, 122, 133, .34), rgba(59, 91, 219, .24));
 }
 
+.home-card.is-tads-ad {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 122, 133, .18), transparent 30%),
+    linear-gradient(160deg, #f7f1e8 0%, #fff 52%, #e8edf8 100%);
+}
+
+.tads-card-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 62px 18px 22px;
+}
+
+.tads-card-host {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  max-width: 360px;
+  min-height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  touch-action: manipulation;
+}
+
+.tads-card-mount {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.tads-card-host a,
+.tads-card-host button {
+  pointer-events: auto;
+}
+
+.tads-card-loading {
+  width: 100%;
+  min-height: 210px;
+  border: 1px solid rgba(30, 28, 24, .12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .82);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(20, 20, 20, .08);
+}
+
+.home-card.is-tads-loaded .tads-card-loading {
+  display: none;
+}
+
+.tads-card-loading strong {
+  font-size: 18px;
+}
+
+.tads-card-loading span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tads-hidden-host {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: -9999px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .card-chips {
   position: absolute;
   top: 22px;

@@ -1,6 +1,7 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const API_BASE = window.VIETNEST_API_BASE || (window.location.port === '5174' ? 'http://127.0.0.1:8080' : '');
 const UI_THEME = window.VIETNEST_UI_THEME === 'warm' ? 'warm' : 'crisp';
+const TADS_SCRIPT_URL = 'https://w.tads.me/widget.js';
 
 applyTheme();
 applyRuntimeClasses();
@@ -308,9 +309,17 @@ const state = {
   queue: [],
   history: [],
   animating: false,
+  tadsListingSwipes: 0,
+  tadsFullscreenOpen: false,
   favorites: new Set(readJSON(STORAGE.favorites, [])),
   seen: normalizeSeen(readJSON(STORAGE.seen, {})),
   filters: normalizeFilters(readJSON(STORAGE.filters, defaultFilters)),
+};
+
+const tadsState = {
+  scriptPromise: null,
+  mountedStaticSlot: '',
+  controllers: {},
 };
 
 function readJSON(key, fallback) {
@@ -608,6 +617,139 @@ function cleanText(value = '') {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
+function tadsTgbWidgetId() {
+  return cleanText(window.VIETNEST_TADS_TGB_WIDGET_ID || '');
+}
+
+function tadsFullscreenWidgetId() {
+  return cleanText(window.VIETNEST_TADS_FULLSCREEN_WIDGET_ID || '');
+}
+
+function tadsDebugEnabled() {
+  return window.VIETNEST_TADS_DEBUG === true;
+}
+
+function tadsTgbFrequency() {
+  return clamp(Number(window.VIETNEST_TADS_TGB_FREQUENCY || window.VIETNEST_TADS_FREQUENCY || 5), 1, 50);
+}
+
+function tadsFullscreenFrequency() {
+  return clamp(Number(window.VIETNEST_TADS_FULLSCREEN_FREQUENCY || 10), 1, 50);
+}
+
+function tadsEnabled() {
+  return Boolean(tadsTgbWidgetId() || tadsFullscreenWidgetId());
+}
+
+function ensureTadsScript() {
+  if (!tadsEnabled()) return Promise.reject(new Error('TADS widget id is not configured'));
+  if (window.tads?.init) return Promise.resolve(window.tads);
+  if (tadsState.scriptPromise) return tadsState.scriptPromise;
+
+  tadsState.scriptPromise = new Promise((resolve, reject) => {
+    let preconnect = document.querySelector('link[href="https://api.tads.me"]');
+    if (!preconnect) {
+      preconnect = document.createElement('link');
+      preconnect.rel = 'preconnect';
+      preconnect.href = 'https://api.tads.me';
+      document.head.appendChild(preconnect);
+    }
+
+    const existing = document.querySelector(`script[src="${TADS_SCRIPT_URL}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.tads), { once: true });
+      existing.addEventListener('error', () => reject(new Error('failed to load TADS script')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = TADS_SCRIPT_URL;
+    script.async = true;
+    script.addEventListener('load', () => resolve(window.tads), { once: true });
+    script.addEventListener('error', () => reject(new Error('failed to load TADS script')), { once: true });
+    document.body.appendChild(script);
+  });
+
+  return tadsState.scriptPromise;
+}
+
+async function ensureTadsController(widgetId, type) {
+  if (!widgetId) return null;
+  const widgetType = String(type || '').toLowerCase();
+  await ensureTadsScript();
+  if (!window.tads?.init) throw new Error('TADS script loaded without init API');
+  ensureTadsContainer(widgetId, widgetType !== 'static');
+  window.tads.controllers = window.tads.controllers || {};
+  const key = `${widgetId}:${widgetType}`;
+  if (tadsState.controllers[key]) return tadsState.controllers[key];
+
+  const controller = window.tads.init({
+    widgetId,
+    type: widgetType,
+    debug: tadsDebugEnabled(),
+    onShowReward: (result) => {
+      void recordAction('tads_show_reward', '', { widgetId, type: widgetType, result });
+    },
+    onClickReward: (result) => {
+      void recordAction('tads_click_reward', '', { widgetId, type: widgetType, result });
+    },
+    onAdsNotFound: () => {
+      void recordAction('tads_ads_not_found', '', { widgetId, type: widgetType });
+    },
+  });
+  window.tads.controllers[widgetId] = controller;
+  tadsState.controllers[key] = controller;
+  return controller;
+}
+
+function ensureTadsContainer(widgetId, hidden = false) {
+  const id = `tads-container-${widgetId}`;
+  let container = document.getElementById(id);
+  if (!container) {
+    container = document.createElement('div');
+    container.id = id;
+  }
+  const mount = [...document.querySelectorAll('.tads-card-mount')]
+    .find((node) => node.dataset.tadsWidgetId === widgetId);
+  if (!hidden && mount) mount.appendChild(container);
+  else if (container.parentElement !== document.body) document.body.appendChild(container);
+  container.classList.toggle('tads-hidden-host', Boolean(hidden));
+  return container;
+}
+
+function createTadsStaticHome(slotNumber, feedIndex) {
+  const widgetId = tadsTgbWidgetId();
+  return {
+    kind: 'tads_static',
+    id: `tads-static:${widgetId}:slot:${slotNumber}`,
+    adId: widgetId,
+    feedIndex,
+    title: t('sponsored'),
+    area: 'TADS',
+    city: 'all',
+    type: 'ad',
+    price: 0,
+    score: 99,
+    source: 'TADS',
+    fresh: t('sponsored'),
+    specs: [t('adDefaultCta'), 'TADS'],
+    details: [],
+    tags: [t('sponsored')],
+    about: '',
+    contact: { name: 'TADS', line: t('adDefaultCta'), value: '' },
+    fbUrl: '',
+    photos: fallbackHomes[0].photos,
+    petFriendly: false,
+    furnished: false,
+    beds: null,
+    widgetId,
+  };
+}
+
+function isTadsStaticHome(home) {
+  return home?.kind === 'tads_static';
+}
+
 function normalizeHome(raw, feedIndex = 0) {
   const photos = Array.isArray(raw.photos) && raw.photos.length
     ? raw.photos.filter(Boolean)
@@ -714,7 +856,7 @@ function textPool(home) {
 }
 
 function matchesFilters(home) {
-  if (home.kind === 'ad') return true;
+  if (home.kind !== 'listing') return true;
   const filters = state.filters;
   if (filters.city !== 'all' && home.city !== filters.city) return false;
   if (filters.type !== 'all' && home.type !== filters.type) return false;
@@ -726,7 +868,7 @@ function matchesFilters(home) {
 }
 
 function fitScore(home) {
-  if (home.kind === 'ad') return 99;
+  if (home.kind !== 'listing') return 99;
   let score = Number(home.score || 76);
   if (home.price && home.price <= state.filters.budget) score += 4;
   if (home.furnished) score += 3;
@@ -737,21 +879,26 @@ function fitScore(home) {
 
 function filteredHomes() {
   const ordered = [...homes].sort((a, b) => Number(a.feedIndex || 0) - Number(b.feedIndex || 0));
-  const listings = ordered.filter((home) => home.kind !== 'ad' && matchesFilters(home));
+  const listings = ordered.filter((home) => home.kind === 'listing' && matchesFilters(home));
   const ads = ordered.filter((home) => home.kind === 'ad');
-  if (!ads.length) return listings;
+  const hasTadsStatic = Boolean(tadsTgbWidgetId());
+  if (!ads.length && !hasTadsStatic) return listings;
 
   const result = [];
   let adIndex = 0;
   listings.forEach((home, index) => {
     result.push(home);
-    if ((index + 1) % 5 === 0) {
-      const ad = ads[adIndex % ads.length];
-      result.push({
-        ...ad,
-        id: `${ad.id}:slot:${index + 1}`,
-        feedIndex: Number(home.feedIndex || index) + 0.01,
-      });
+    if ((index + 1) % tadsTgbFrequency() === 0) {
+      if (ads.length) {
+        const ad = ads[adIndex % ads.length];
+        result.push({
+          ...ad,
+          id: `${ad.id}:slot:${index + 1}`,
+          feedIndex: Number(home.feedIndex || index) + 0.01,
+        });
+      } else {
+        result.push(createTadsStaticHome(index + 1, Number(home.feedIndex || index) + 0.01));
+      }
       adIndex += 1;
     }
   });
@@ -759,7 +906,7 @@ function filteredHomes() {
 }
 
 function filteredListingCount() {
-  return filteredHomes().filter((home) => home.kind !== 'ad').length;
+  return filteredHomes().filter((home) => home.kind === 'listing').length;
 }
 
 function ensureQueue() {
@@ -859,6 +1006,7 @@ function specIcon(index) {
 }
 
 function displaySpecs(home) {
+  if (isTadsStaticHome(home)) return [t('adDefaultCta'), 'TADS'];
   if (home.kind === 'ad') return [home.ctaText || t('adDefaultCta'), home.source || t('adProvider')].filter(Boolean);
   const specs = [];
   if (home.beds === 0) specs.push(t('studio'));
@@ -875,6 +1023,28 @@ function cardMarkup(home, depth) {
   const photo = home.photos[selectedPhoto] || home.photos[0];
   const progressPercent = home.photos.length > 1 ? ((selectedPhoto + 1) / home.photos.length) * 100 : 0;
   const specs = displaySpecs(home);
+  if (isTadsStaticHome(home)) {
+    return `
+      <div class="tads-card-shell">
+        <div class="card-chips">
+          <div class="chip-line">
+            <span class="glass-chip solid">${escapeHTML(t('sponsored'))}</span>
+            <span class="glass-chip">TADS</span>
+          </div>
+          <span class="glass-chip">${escapeHTML(t('adDefaultCta'))}</span>
+        </div>
+        <div class="tads-card-host">
+          <div class="tads-card-mount" data-tads-widget-id="${escapeHTML(home.widgetId)}"></div>
+          <div class="tads-card-loading">
+            <strong>${escapeHTML(t('sponsored'))}</strong>
+            <span>${escapeHTML(activeLanguage === 'ru' ? 'Загружаем предложение' : 'Loading offer')}</span>
+          </div>
+        </div>
+        <div class="stamp like">${escapeHTML(t('adDefaultCta'))}</div>
+        <div class="stamp skip">${escapeHTML(t('skippedStamp'))}</div>
+      </div>
+    `;
+  }
   if (home.kind === 'ad') {
     return `
       <div class="photo">
@@ -940,7 +1110,7 @@ function renderDeck() {
   queue.slice(0, 3).reverse().forEach((home, reverseIndex, stack) => {
     const depth = stack.length - reverseIndex - 1;
     const card = document.createElement('article');
-    card.className = `home-card${depth === 0 ? ' is-top' : ''}${home.kind === 'ad' ? ' is-ad' : ''}`;
+    card.className = `home-card${depth === 0 ? ' is-top' : ''}${home.kind === 'ad' ? ' is-ad' : ''}${isTadsStaticHome(home) ? ' is-tads-ad' : ''}`;
     card.dataset.id = home.id;
     card.dataset.depth = String(depth);
     card.style.zIndex = String(20 - depth);
@@ -949,6 +1119,33 @@ function renderDeck() {
     deck.appendChild(card);
     if (depth === 0) attachDrag(card);
   });
+  mountTopTadsStaticCard();
+}
+
+function mountTopTadsStaticCard() {
+  const home = currentHome();
+  if (!isTadsStaticHome(home)) return;
+  const card = $('deck').querySelector('.home-card[data-depth="0"].is-tads-ad');
+  if (!card || tadsState.mountedStaticSlot === home.id) return;
+  tadsState.mountedStaticSlot = home.id;
+
+  ensureTadsController(home.widgetId, 'STATIC')
+    .then((controller) => controller?.loadAd?.()
+      .then((data) => {
+        const loadedType = String(data?.type || 'static').toLowerCase();
+        if (loadedType !== 'static') return null;
+        return controller.showAd();
+      }))
+    .then(() => {
+      card.classList.add('is-tads-loaded');
+      void recordAction('tads_static_loaded', '', { widgetId: home.widgetId, slot: home.id });
+    })
+    .catch((error) => {
+      console.warn('TADS static load failed:', error);
+      card.classList.remove('is-tads-loaded');
+      tadsState.mountedStaticSlot = '';
+      void recordAction('tads_static_error', '', { widgetId: home.widgetId, slot: home.id, error: String(error?.message || error) });
+    });
 }
 
 function animateStackBehind() {
@@ -1037,6 +1234,15 @@ function consumeViewOptimistically(home) {
 }
 
 function trackSwipeActions(home, direction, save) {
+  if (isTadsStaticHome(home)) {
+    void recordAction('tads_static_swipe', '', {
+      widgetId: home.widgetId,
+      direction,
+      save,
+      slot: home.id,
+    });
+    return;
+  }
   if (home.kind === 'ad') {
     void recordAction(direction === 'left' ? 'ad_skip' : 'ad_impression', '', {
       adId: home.adId,
@@ -1051,6 +1257,32 @@ function trackSwipeActions(home, direction, save) {
       void recordAction('favorite', home.id, { source: 'swipe' });
     }
   });
+}
+
+function shouldShowTadsFullscreen(home) {
+  if (home?.kind !== 'listing' || !tadsFullscreenWidgetId()) return false;
+  state.tadsListingSwipes += 1;
+  return state.tadsListingSwipes % tadsFullscreenFrequency() === 0;
+}
+
+function showTadsFullscreen(reason = 'listing_breakpoint') {
+  const widgetId = tadsFullscreenWidgetId();
+  if (!widgetId || state.tadsFullscreenOpen) return;
+  state.tadsFullscreenOpen = true;
+  ensureTadsController(widgetId, 'FULLSCREEN')
+    .then((controller) => controller?.showAd?.())
+    .then(() => {
+      void recordAction('tads_fullscreen_show', '', { widgetId, reason });
+    })
+    .catch((error) => {
+      console.warn('TADS fullscreen failed:', error);
+      void recordAction('tads_fullscreen_error', '', { widgetId, reason, error: String(error?.message || error) });
+    })
+    .finally(() => {
+      window.setTimeout(() => {
+        state.tadsFullscreenOpen = false;
+      }, 1200);
+    });
 }
 
 function animateAndAdvance(direction, { save = false } = {}) {
@@ -1068,6 +1300,8 @@ function animateAndAdvance(direction, { save = false } = {}) {
   }
 
   const isAd = home.kind === 'ad';
+  const isTadsStatic = isTadsStaticHome(home);
+  const showFullscreenAfterAdvance = shouldShowTadsFullscreen(home);
   state.animating = true;
   const likeStamp = card.querySelector('.stamp.like');
   const skipStamp = card.querySelector('.stamp.skip');
@@ -1077,7 +1311,9 @@ function animateAndAdvance(direction, { save = false } = {}) {
   consumeViewOptimistically(home);
   trackSwipeActions(home, direction, save);
 
-  if (save && isAd) {
+  if (save && isTadsStatic) {
+    haptic('medium');
+  } else if (save && isAd) {
     void recordAction('ad_click', '', { adId: home.adId, source: 'swipe_right' });
     openUrl(home.fbUrl);
     haptic('medium');
@@ -1103,8 +1339,9 @@ function animateAndAdvance(direction, { save = false } = {}) {
     advance(home);
     state.animating = false;
     render();
+    if (showFullscreenAfterAdvance) window.setTimeout(() => showTadsFullscreen('after_listing_swipes'), 320);
     if (save && isAd) toast(t('adOpened'));
-    else if (save) toast(t('addedToShortlist'));
+    else if (save && !isTadsStatic) toast(t('addedToShortlist'));
   }, direction === 'right' ? 600 : 420);
 }
 
@@ -1156,7 +1393,7 @@ function attachDrag(card) {
   }
 
   card.addEventListener('pointerdown', (event) => {
-    if (state.animating || event.target.closest('button')) return;
+    if (state.animating || event.target.closest('button, a, .tads-card-host, .tads-card-host *')) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
     dragging = true;
@@ -1391,6 +1628,10 @@ function openAd(home, source = 'card') {
 function openCardInfo() {
   const home = currentHome();
   if (!home) return;
+  if (isTadsStaticHome(home)) {
+    toast(t('adDefaultCta'));
+    return;
+  }
   if (home.kind === 'ad') {
     openAd(home, 'info_button');
     return;

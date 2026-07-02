@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/name: vietnest
         app.kubernetes.io/part-of: vietnam-rent-miniapp
       annotations:
-        vietnest.teamgenius.ru/rollout-at: "2026-07-02T14:50:09Z"
+        vietnest.teamgenius.ru/rollout-at: "2026-07-02T15:20:29Z"
     spec:
       imagePullSecrets:
         - name: ghcr-pull
@@ -41,6 +41,12 @@ spec:
               value: "false"
             - name: AD_FREQUENCY
               value: "6"
+            - name: TADS_DEBUG
+              value: "false"
+            - name: TADS_TGB_FREQUENCY
+              value: "5"
+            - name: TADS_FULLSCREEN_FREQUENCY
+              value: "10"
             - name: TELEGRAM_SUBSCRIPTION_URL
               value: "https://t.me/nemelokkk"
             - name: TELEGRAM_MINIAPP_URL

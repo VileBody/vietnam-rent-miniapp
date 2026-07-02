@@ -998,6 +998,31 @@ func adFrequency() int {
 	return value
 }
 
+func tadsTGBFrequency() int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("TADS_TGB_FREQUENCY")))
+	if err != nil || value <= 0 {
+		return 5
+	}
+	return value
+}
+
+func tadsFullscreenFrequency() int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("TADS_FULLSCREEN_FREQUENCY")))
+	if err != nil || value <= 0 {
+		return 10
+	}
+	return value
+}
+
+func tadsDebugEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TADS_DEBUG"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func subscriptionSupportURL() string {
 	return getenv("TELEGRAM_SUBSCRIPTION_URL", "https://t.me/teamgenius_support")
 }
@@ -2361,6 +2386,21 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "window.VIETNEST_UI_THEME = %s;\n", theme)
 		fmt.Fprintf(w, "window.VIETNEST_FREE_VIEW_LIMIT = %d;\n", freeViewLimit())
 		fmt.Fprintf(w, "window.VIETNEST_PAYWALL_ENABLED = %t;\n", paywallEnabled())
+		tadsTGBWidgetID, err := json.Marshal(strings.TrimSpace(os.Getenv("TADS_TGB_WIDGET_ID")))
+		if err != nil {
+			http.Error(w, "failed to render config", http.StatusInternalServerError)
+			return
+		}
+		tadsFullscreenWidgetID, err := json.Marshal(strings.TrimSpace(os.Getenv("TADS_FULLSCREEN_WIDGET_ID")))
+		if err != nil {
+			http.Error(w, "failed to render config", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, "window.VIETNEST_TADS_TGB_WIDGET_ID = %s;\n", tadsTGBWidgetID)
+		fmt.Fprintf(w, "window.VIETNEST_TADS_FULLSCREEN_WIDGET_ID = %s;\n", tadsFullscreenWidgetID)
+		fmt.Fprintf(w, "window.VIETNEST_TADS_DEBUG = %t;\n", tadsDebugEnabled())
+		fmt.Fprintf(w, "window.VIETNEST_TADS_TGB_FREQUENCY = %d;\n", tadsTGBFrequency())
+		fmt.Fprintf(w, "window.VIETNEST_TADS_FULLSCREEN_FREQUENCY = %d;\n", tadsFullscreenFrequency())
 		supportURL, err := json.Marshal(subscriptionSupportURL())
 		if err != nil {
 			http.Error(w, "failed to render config", http.StatusInternalServerError)
