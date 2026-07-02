@@ -1309,10 +1309,10 @@ func (s *Server) upsertTelegramUser(ctx context.Context, tgUser TelegramInitUser
 	row := s.db.QueryRow(ctx, `
 INSERT INTO app_users (
   telegram_user_id, username, first_name, last_name, language_code, photo_url,
-  paywall_variant, last_auth_at, last_seen_at
+  paywall_variant, is_subscribed, subscription_source, subscription_note, last_auth_at, last_seen_at
 ) VALUES (
   @telegram_user_id, @username, @first_name, @last_name, @language_code, @photo_url,
-  @paywall_variant, now(), now()
+  @paywall_variant, @is_subscribed, @subscription_source, @subscription_note, now(), now()
 )
 ON CONFLICT (telegram_user_id) DO UPDATE SET
   username = excluded.username,
@@ -1320,30 +1320,45 @@ ON CONFLICT (telegram_user_id) DO UPDATE SET
   last_name = excluded.last_name,
   language_code = excluded.language_code,
   photo_url = excluded.photo_url,
+  is_subscribed = CASE WHEN @is_subscribed THEN true ELSE app_users.is_subscribed END,
+  subscription_source = CASE WHEN @is_subscribed THEN @subscription_source ELSE app_users.subscription_source END,
+  subscription_note = CASE WHEN @is_subscribed THEN @subscription_note ELSE app_users.subscription_note END,
   last_auth_at = now(),
   last_seen_at = now()
 RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall');
 `, pgx.NamedArgs{
-		"telegram_user_id": tgUser.ID,
-		"username":         nullString(tgUser.Username),
-		"first_name":       nullString(tgUser.FirstName),
-		"last_name":        nullString(tgUser.LastName),
-		"language_code":    nullString(tgUser.LanguageCode),
-		"photo_url":        nullString(tgUser.PhotoURL),
-		"paywall_variant":  paywallVariantForSeed(fmt.Sprintf("tg:%d", tgUser.ID)),
+		"telegram_user_id":    tgUser.ID,
+		"username":            nullString(tgUser.Username),
+		"first_name":          nullString(tgUser.FirstName),
+		"last_name":           nullString(tgUser.LastName),
+		"language_code":       nullString(tgUser.LanguageCode),
+		"photo_url":           nullString(tgUser.PhotoURL),
+		"paywall_variant":     paywallVariantForSeed(fmt.Sprintf("tg:%d", tgUser.ID)),
+		"is_subscribed":       !paywallEnabled(),
+		"subscription_source": nullString("ads_free_mode"),
+		"subscription_note":   nullString("Paywall disabled after switching monetization to ads"),
 	})
 	return scanAppUser(row)
 }
 
 func (s *Server) upsertClientUser(ctx context.Context, clientID string) (AppUser, error) {
 	row := s.db.QueryRow(ctx, `
-INSERT INTO app_users (client_id, first_name, paywall_variant, last_auth_at, last_seen_at)
-VALUES (@client_id, 'Guest', @paywall_variant, now(), now())
+INSERT INTO app_users (client_id, first_name, paywall_variant, is_subscribed, subscription_source, subscription_note, last_auth_at, last_seen_at)
+VALUES (@client_id, 'Guest', @paywall_variant, @is_subscribed, @subscription_source, @subscription_note, now(), now())
 ON CONFLICT (client_id) DO UPDATE SET
+  is_subscribed = CASE WHEN @is_subscribed THEN true ELSE app_users.is_subscribed END,
+  subscription_source = CASE WHEN @is_subscribed THEN @subscription_source ELSE app_users.subscription_source END,
+  subscription_note = CASE WHEN @is_subscribed THEN @subscription_note ELSE app_users.subscription_note END,
   last_auth_at = now(),
   last_seen_at = now()
 RETURNING id, telegram_user_id, coalesce(client_id, ''), coalesce(username, ''), coalesce(first_name, ''), coalesce(last_name, ''), coalesce(language_code, ''), (is_subscribed AND (subscription_until IS NULL OR subscription_until > now())), coalesce(paywall_variant, 'view_paywall');
-`, pgx.NamedArgs{"client_id": clientID, "paywall_variant": paywallVariantForSeed("client:" + clientID)})
+`, pgx.NamedArgs{
+		"client_id":           clientID,
+		"paywall_variant":     paywallVariantForSeed("client:" + clientID),
+		"is_subscribed":       !paywallEnabled(),
+		"subscription_source": nullString("ads_free_mode"),
+		"subscription_note":   nullString("Paywall disabled after switching monetization to ads"),
+	})
 	return scanAppUser(row)
 }
 
