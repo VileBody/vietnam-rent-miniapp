@@ -63,6 +63,25 @@ type ListingTranslationFields struct {
 	Amenities []string `json:"amenities"`
 }
 
+type Ad struct {
+	ID         string `json:"id"`
+	Provider   string `json:"provider"`
+	Placement  string `json:"placement"`
+	Title      string `json:"title"`
+	Body       string `json:"body"`
+	ImageURL   string `json:"imageUrl"`
+	CTAText    string `json:"ctaText"`
+	CTAURL     string `json:"ctaUrl"`
+	Advertiser string `json:"advertiser"`
+	Label      string `json:"label"`
+}
+
+type FeedItem struct {
+	Type    string   `json:"type"`
+	Listing *Listing `json:"listing,omitempty"`
+	Ad      *Ad      `json:"ad,omitempty"`
+}
+
 type ScrapeSource struct {
 	ID              int64          `json:"id"`
 	CitySlug        string         `json:"citySlug"`
@@ -210,6 +229,7 @@ func main() {
 	mux.HandleFunc("POST /api/events", srv.handleEvent)
 	mux.HandleFunc("POST /api/searches", srv.handleSearch)
 	mux.HandleFunc("POST /api/telegram/webhook", srv.handleTelegramWebhook)
+	mux.HandleFunc("GET /api/feed", srv.handleFeed)
 	mux.HandleFunc("GET /api/listings", srv.handleListings)
 	mux.HandleFunc("GET /api/listings/{id}", srv.handleListing)
 	mux.HandleFunc("GET /api/scrape-sources", srv.handleScrapeSources)
@@ -495,6 +515,26 @@ CREATE TABLE IF NOT EXISTS user_searches (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS ads (
+  id text PRIMARY KEY,
+  provider text NOT NULL DEFAULT 'house',
+  placement text NOT NULL DEFAULT 'feed_card',
+  status text NOT NULL DEFAULT 'active',
+  title text NOT NULL,
+  body text NOT NULL DEFAULT '',
+  image_url text NOT NULL DEFAULT '',
+  cta_text text NOT NULL DEFAULT '',
+  cta_url text NOT NULL DEFAULT '',
+  advertiser text NOT NULL DEFAULT '',
+  label text NOT NULL DEFAULT 'Реклама',
+  weight int NOT NULL DEFAULT 100,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  targeting jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS listings_city_idx ON listings (city);
 CREATE INDEX IF NOT EXISTS listings_home_type_idx ON listings (home_type);
 CREATE INDEX IF NOT EXISTS listings_price_idx ON listings (price_usd);
@@ -524,6 +564,8 @@ CREATE INDEX IF NOT EXISTS user_actions_user_idx ON user_listing_actions (user_i
 CREATE INDEX IF NOT EXISTS user_actions_listing_idx ON user_listing_actions (listing_id, action, created_at DESC);
 CREATE INDEX IF NOT EXISTS user_views_user_idx ON user_listing_views (user_id, last_viewed_at DESC);
 CREATE INDEX IF NOT EXISTS user_searches_user_idx ON user_searches (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ads_status_placement_idx ON ads (status, placement, weight DESC);
+CREATE INDEX IF NOT EXISTS ads_targeting_idx ON ads USING gin (targeting);
 `)
 	return err
 }
@@ -535,7 +577,7 @@ func seed(ctx context.Context, db *pgxpool.Pool) error {
 	if err := seedScrapeSources(ctx, db); err != nil {
 		return err
 	}
-	return nil
+	return seedAds(ctx, db)
 }
 
 func seedLocations(ctx context.Context, db *pgxpool.Pool) error {
@@ -640,6 +682,58 @@ OR name IN (
 );
 `)
 	return err
+}
+
+func seedAds(ctx context.Context, db *pgxpool.Pool) error {
+	batch := &pgx.Batch{}
+	for _, ad := range seedAdsData {
+		batch.Queue(`
+INSERT INTO ads (
+  id, provider, placement, status, title, body, image_url, cta_text, cta_url,
+  advertiser, label, weight, targeting
+) VALUES (
+  @id, @provider, @placement, @status, @title, @body, @image_url, @cta_text, @cta_url,
+  @advertiser, @label, @weight, @targeting::jsonb
+)
+ON CONFLICT (id) DO UPDATE SET
+  provider = excluded.provider,
+  placement = excluded.placement,
+  status = excluded.status,
+  title = excluded.title,
+  body = excluded.body,
+  image_url = excluded.image_url,
+  cta_text = excluded.cta_text,
+  cta_url = excluded.cta_url,
+  advertiser = excluded.advertiser,
+  label = excluded.label,
+  weight = excluded.weight,
+  targeting = excluded.targeting,
+  updated_at = now();
+`, pgx.NamedArgs{
+			"id":         ad.ID,
+			"provider":   ad.Provider,
+			"placement":  ad.Placement,
+			"status":     "active",
+			"title":      ad.Title,
+			"body":       ad.Body,
+			"image_url":  ad.ImageURL,
+			"cta_text":   ad.CTAText,
+			"cta_url":    ad.CTAURL,
+			"advertiser": ad.Advertiser,
+			"label":      ad.Label,
+			"weight":     ad.Weight,
+			"targeting":  ad.Targeting,
+		})
+	}
+
+	results := db.SendBatch(ctx, batch)
+	defer results.Close()
+	for range seedAdsData {
+		if _, err := results.Exec(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func seedListingsData(ctx context.Context, db *pgxpool.Pool) error {
@@ -857,6 +951,23 @@ func paywallEnabled() bool {
 	default:
 		return false
 	}
+}
+
+func adSlotEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("ADS_ENABLED"))) {
+	case "", "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func adFrequency() int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("AD_FREQUENCY")))
+	if err != nil || value < 2 {
+		return 6
+	}
+	return value
 }
 
 func subscriptionSupportURL() string {
@@ -1542,6 +1653,42 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	listings, status, err := s.listingsForRequest(ctx, r)
+	if err != nil {
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	maskListingsForUser(listings, user)
+	writeJSON(w, http.StatusOK, listings)
+}
+
+func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	user, err := s.requireUser(ctx, r)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
+	listings, status, err := s.listingsForRequest(ctx, r)
+	if err != nil {
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	maskListingsForUser(listings, user)
+
+	ads, err := s.activeAds(ctx, "feed_card")
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mixFeed(listings, ads, adFrequency()))
+}
+
+func (s *Server) listingsForRequest(ctx context.Context, r *http.Request) ([]Listing, int, error) {
 	where := []string{"true"}
 	args := pgx.NamedArgs{}
 
@@ -1564,8 +1711,7 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 	if maxPrice := strings.TrimSpace(r.URL.Query().Get("max_price")); maxPrice != "" {
 		value, err := strconv.Atoi(maxPrice)
 		if err != nil || value <= 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "max_price must be a positive integer"})
-			return
+			return nil, http.StatusBadRequest, errors.New("max_price must be a positive integer")
 		}
 		where = append(where, "price_usd <= @max_price")
 		args["max_price"] = value
@@ -1577,22 +1723,86 @@ func (s *Server) handleListings(w http.ResponseWriter, r *http.Request) {
 	query := listingSelectSQL + " WHERE " + strings.Join(where, " AND ") + " ORDER BY match_score DESC, price_usd ASC"
 	rows, err := s.db.Query(ctx, query, args)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
 	defer rows.Close()
 
 	listings, err := scanListings(rows)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
 	if err := s.applyListingTranslations(ctx, listings, requestLocale(r)); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
-	maskListingsForUser(listings, user)
-	writeJSON(w, http.StatusOK, listings)
+	return listings, http.StatusOK, nil
+}
+
+func (s *Server) activeAds(ctx context.Context, placement string) ([]Ad, error) {
+	if !adSlotEnabled() {
+		return nil, nil
+	}
+	rows, err := s.db.Query(ctx, `
+SELECT id, provider, placement, title, body, image_url, cta_text, cta_url, advertiser, label
+FROM ads
+WHERE status = 'active'
+  AND placement = @placement
+  AND (starts_at IS NULL OR starts_at <= now())
+  AND (ends_at IS NULL OR ends_at > now())
+ORDER BY weight DESC, id ASC;
+`, pgx.NamedArgs{"placement": placement})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ads := []Ad{}
+	for rows.Next() {
+		var ad Ad
+		if err := rows.Scan(
+			&ad.ID,
+			&ad.Provider,
+			&ad.Placement,
+			&ad.Title,
+			&ad.Body,
+			&ad.ImageURL,
+			&ad.CTAText,
+			&ad.CTAURL,
+			&ad.Advertiser,
+			&ad.Label,
+		); err != nil {
+			return nil, err
+		}
+		ads = append(ads, ad)
+	}
+	return ads, rows.Err()
+}
+
+func mixFeed(listings []Listing, ads []Ad, frequency int) []FeedItem {
+	extra := 0
+	if frequency > 1 {
+		extra = len(listings) / frequency
+	}
+	feed := make([]FeedItem, 0, len(listings)+extra)
+	if len(listings) == 0 {
+		return feed
+	}
+	if len(ads) == 0 || frequency < 2 {
+		for index := range listings {
+			feed = append(feed, FeedItem{Type: "listing", Listing: &listings[index]})
+		}
+		return feed
+	}
+
+	listingsBeforeAd := frequency - 1
+	adIndex := 0
+	for index := range listings {
+		feed = append(feed, FeedItem{Type: "listing", Listing: &listings[index]})
+		if (index+1)%listingsBeforeAd == 0 {
+			feed = append(feed, FeedItem{Type: "ad", Ad: &ads[adIndex%len(ads)]})
+			adIndex++
+		}
+	}
+	return feed
 }
 
 func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
@@ -1964,6 +2174,21 @@ type scrapeSourceSeed struct {
 	Enabled         bool
 }
 
+type adSeed struct {
+	ID         string
+	Provider   string
+	Placement  string
+	Title      string
+	Body       string
+	ImageURL   string
+	CTAText    string
+	CTAURL     string
+	Advertiser string
+	Label      string
+	Weight     int
+	Targeting  string
+}
+
 func strPtr(value string) *string {
 	return &value
 }
@@ -2087,6 +2312,51 @@ var seedScrapeSourcesData = []scrapeSourceSeed{
 		DaysSinceListed: intPtr(14),
 		Params:          `{"exact": false, "verifiedPath": "107416705961385", "apifyResultsLimit": 50}`,
 		Enabled:         true,
+	},
+}
+
+var seedAdsData = []adSeed{
+	{
+		ID:         "ad-vietnam-esim",
+		Provider:   "house",
+		Placement:  "feed_card",
+		Title:      "eSIM для Вьетнама",
+		Body:       "Интернет сразу после посадки: пакеты на 7, 15 и 30 дней без похода в салон.",
+		ImageURL:   "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=1200&q=82",
+		CTAText:    "Подключить eSIM",
+		CTAURL:     "https://example.com/vietnam-esim",
+		Advertiser: "VietNest Partners",
+		Label:      "Реклама",
+		Weight:     120,
+		Targeting:  `{"cities":["all"],"languages":["ru","en"]}`,
+	},
+	{
+		ID:         "ad-relocation-checklist",
+		Provider:   "house",
+		Placement:  "feed_card",
+		Title:      "Переезд во Вьетнам без хаоса",
+		Body:       "Короткий чеклист по районам, депозитам, договорам и первым бытовым задачам после прилета.",
+		ImageURL:   "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=82",
+		CTAText:    "Открыть гайд",
+		CTAURL:     "https://example.com/vietnam-relocation",
+		Advertiser: "VietNest Guide",
+		Label:      "Реклама",
+		Weight:     110,
+		Targeting:  `{"cities":["danang","nhatrang","hcmc"],"languages":["ru"]}`,
+	},
+	{
+		ID:         "ad-bike-rental",
+		Provider:   "house",
+		Placement:  "feed_card",
+		Title:      "Байк на месяц в Нячанге",
+		Body:       "Проверенные байки, шлемы и помощь с документами. Удобно, если вы только заселились.",
+		ImageURL:   "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=82",
+		CTAText:    "Выбрать байк",
+		CTAURL:     "https://example.com/vietnam-bike",
+		Advertiser: "Nha Trang Mobility",
+		Label:      "Реклама",
+		Weight:     100,
+		Targeting:  `{"cities":["nhatrang"],"languages":["ru","en"]}`,
 	},
 }
 

@@ -83,6 +83,10 @@ const I18N = {
     skippedStamp: 'НЕТ',
     filtersApplied: 'Фильтры применены',
     addedToShortlist: 'Добавлено в избранное',
+    sponsored: 'Реклама',
+    adProvider: 'Партнер',
+    adDefaultCta: 'Подробнее',
+    adOpened: 'Открываем предложение',
     searchingAll: 'Ищем по всему Вьетнаму',
     searchingCity: 'Ищем в {city}',
     paywallKicker: 'VietNest Plus',
@@ -169,6 +173,10 @@ const I18N = {
     skippedStamp: 'SKIP',
     filtersApplied: 'Filters applied',
     addedToShortlist: 'Added to shortlist',
+    sponsored: 'Sponsored',
+    adProvider: 'Partner',
+    adDefaultCta: 'Learn more',
+    adOpened: 'Opening offer',
     searchingAll: 'Looking across Vietnam',
     searchingCity: 'Looking in {city}',
     paywallKicker: 'VietNest Plus',
@@ -363,6 +371,7 @@ function cityLabel(value) {
 }
 
 function typeLabel(value) {
+  if (value === 'ad') return t('sponsored');
   if (value === 'villa') return t('villa');
   if (value === 'apartment') return t('apartment');
   return t('any');
@@ -553,7 +562,7 @@ async function recordSearch() {
   try {
     await api('/api/searches', {
       method: 'POST',
-      body: JSON.stringify({ filters: state.filters, resultsCount: filteredHomes().length }),
+      body: JSON.stringify({ filters: state.filters, resultsCount: filteredListingCount() }),
     });
   } catch (error) {
     console.warn('Search tracking failed:', error);
@@ -595,7 +604,7 @@ function cleanText(value = '') {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-function normalizeHome(raw) {
+function normalizeHome(raw, feedIndex = 0) {
   const photos = Array.isArray(raw.photos) && raw.photos.length
     ? raw.photos.filter(Boolean)
     : fallbackHomes[0].photos;
@@ -610,7 +619,9 @@ function normalizeHome(raw) {
   const pool = [title, about, raw.area, type, ...tags, ...specs, ...details].join(' ').toLowerCase();
 
   return {
+    kind: 'listing',
     id: String(raw.id || raw.externalId || raw.external_id || `${city}-${title}`),
+    feedIndex,
     title,
     area: cleanText(raw.area || cityLabel(city)),
     city,
@@ -636,8 +647,52 @@ function normalizeHome(raw) {
   };
 }
 
+function normalizeAd(raw = {}, feedIndex = 0) {
+  const id = cleanText(raw.id || `${feedIndex}`);
+  const image = cleanText(raw.imageUrl || raw.image_url || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=82');
+  const title = cleanText(raw.title || t('sponsored'));
+  const body = cleanText(raw.body || raw.description || '');
+  const ctaUrl = cleanText(raw.ctaUrl || raw.cta_url || '');
+  const ctaText = cleanText(raw.ctaText || raw.cta_text || t('adDefaultCta'));
+  const provider = cleanText(raw.advertiser || raw.provider || t('adProvider'));
+  const label = cleanText(raw.label || t('sponsored'));
+
+  return {
+    kind: 'ad',
+    id: `ad:${id}`,
+    adId: id,
+    feedIndex,
+    title,
+    area: provider,
+    city: 'all',
+    type: 'ad',
+    price: 0,
+    score: 99,
+    source: provider,
+    fresh: label,
+    specs: [label, provider, ctaText].filter(Boolean),
+    details: [],
+    tags: [label, provider].filter(Boolean),
+    about: body,
+    contact: { name: provider, line: ctaText, value: ctaUrl },
+    fbUrl: ctaUrl,
+    photos: [image],
+    petFriendly: false,
+    furnished: false,
+    beds: null,
+    ctaText,
+  };
+}
+
+function normalizeFeedItem(item, feedIndex = 0) {
+  if (item?.type === 'ad') return normalizeAd(item.ad || item, feedIndex);
+  if (item?.type === 'listing') return normalizeHome(item.listing || item, feedIndex);
+  return normalizeHome(item, feedIndex);
+}
+
 function normalizeType(value) {
   const text = String(value).toLowerCase();
+  if (/^ad$|реклама|sponsor|partner/i.test(text)) return 'ad';
   if (/villa|house|home|bungalow|вилла|дом/.test(text)) return 'villa';
   return 'apartment';
 }
@@ -655,6 +710,7 @@ function textPool(home) {
 }
 
 function matchesFilters(home) {
+  if (home.kind === 'ad') return true;
   const filters = state.filters;
   if (filters.city !== 'all' && home.city !== filters.city) return false;
   if (filters.type !== 'all' && home.type !== filters.type) return false;
@@ -666,6 +722,7 @@ function matchesFilters(home) {
 }
 
 function fitScore(home) {
+  if (home.kind === 'ad') return 99;
   let score = Number(home.score || 76);
   if (home.price && home.price <= state.filters.budget) score += 4;
   if (home.furnished) score += 3;
@@ -675,20 +732,42 @@ function fitScore(home) {
 }
 
 function filteredHomes() {
-  return homes
-    .filter(matchesFilters)
-    .sort((a, b) => fitScore(b) - fitScore(a) || Number(a.price || 999999) - Number(b.price || 999999));
+  const ordered = [...homes].sort((a, b) => Number(a.feedIndex || 0) - Number(b.feedIndex || 0));
+  const listings = ordered.filter((home) => home.kind !== 'ad' && matchesFilters(home));
+  const ads = ordered.filter((home) => home.kind === 'ad');
+  if (!ads.length) return listings;
+
+  const result = [];
+  let adIndex = 0;
+  listings.forEach((home, index) => {
+    result.push(home);
+    if ((index + 1) % 5 === 0) {
+      const ad = ads[adIndex % ads.length];
+      result.push({
+        ...ad,
+        id: `${ad.id}:slot:${index + 1}`,
+        feedIndex: Number(home.feedIndex || index) + 0.01,
+      });
+      adIndex += 1;
+    }
+  });
+  return result;
+}
+
+function filteredListingCount() {
+  return filteredHomes().filter((home) => home.kind !== 'ad').length;
 }
 
 function ensureQueue() {
   const candidates = filteredHomes();
+  const candidateByID = new Map(candidates.map((home) => [home.id, home]));
   const valid = new Set(candidates.map((home) => home.id));
   state.queue = state.queue.filter((id) => valid.has(id));
 
   if (!state.queue.length) {
     state.queue = candidates.filter((home) => !state.seen[home.id]).map((home) => home.id);
   }
-  return state.queue.map((id) => homes.find((home) => home.id === id)).filter(Boolean);
+  return state.queue.map((id) => candidateByID.get(id)).filter(Boolean);
 }
 
 function resetQueue({ clearSeen = false } = {}) {
@@ -776,6 +855,7 @@ function specIcon(index) {
 }
 
 function displaySpecs(home) {
+  if (home.kind === 'ad') return [home.ctaText || t('adDefaultCta'), home.source || t('adProvider')].filter(Boolean);
   const specs = [];
   if (home.beds === 0) specs.push(t('studio'));
   else if (home.beds) specs.push(activeLanguage === 'ru' ? `${home.beds} ${t('bedShort')}` : `${home.beds} ${t('bedShort')}`);
@@ -791,6 +871,31 @@ function cardMarkup(home, depth) {
   const photo = home.photos[selectedPhoto] || home.photos[0];
   const progressPercent = home.photos.length > 1 ? ((selectedPhoto + 1) / home.photos.length) * 100 : 0;
   const specs = displaySpecs(home);
+  if (home.kind === 'ad') {
+    return `
+      <div class="photo">
+        <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
+        <div class="shade"></div>
+      </div>
+      <div class="card-chips">
+        <div class="chip-line">
+          <span class="glass-chip solid">${escapeHTML(t('sponsored'))}</span>
+          <span class="glass-chip">${escapeHTML(home.source || t('adProvider'))}</span>
+        </div>
+        <span class="glass-chip">${escapeHTML(home.ctaText || t('adDefaultCta'))}</span>
+      </div>
+      <div class="stamp like">${escapeHTML(t('adDefaultCta'))}</div>
+      <div class="stamp skip">${escapeHTML(t('skippedStamp'))}</div>
+      <div class="card-copy ad-copy">
+        <div class="card-price"><strong>${escapeHTML(t('sponsored'))}</strong><span>${escapeHTML(home.source || '')}</span></div>
+        <h2>${escapeHTML(home.title)}</h2>
+        <p>${escapeHTML(home.about)}</p>
+        <div class="card-specs">
+          ${specs.map((spec, index) => `<span>${specIcon(index)}${escapeHTML(spec)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="photo">
       <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
@@ -831,7 +936,7 @@ function renderDeck() {
   queue.slice(0, 3).reverse().forEach((home, reverseIndex, stack) => {
     const depth = stack.length - reverseIndex - 1;
     const card = document.createElement('article');
-    card.className = `home-card${depth === 0 ? ' is-top' : ''}`;
+    card.className = `home-card${depth === 0 ? ' is-top' : ''}${home.kind === 'ad' ? ' is-ad' : ''}`;
     card.dataset.id = home.id;
     card.dataset.depth = String(depth);
     card.style.zIndex = String(20 - depth);
@@ -902,6 +1007,7 @@ function contactsLocked() {
 }
 
 function wouldExceedViewLimit(home) {
+  if (home?.kind === 'ad') return false;
   const usage = state.session?.usage;
   if (!isViewPaywallVariant()) return false;
   if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return false;
@@ -909,6 +1015,7 @@ function wouldExceedViewLimit(home) {
 }
 
 function consumeViewOptimistically(home) {
+  if (home?.kind === 'ad') return;
   const usage = state.session?.usage;
   if (!isViewPaywallVariant()) return;
   if (!usage || state.session?.user?.isSubscribed || state.seen[home.id]) return;
@@ -922,6 +1029,15 @@ function consumeViewOptimistically(home) {
 }
 
 function trackSwipeActions(home, direction, save) {
+  if (home.kind === 'ad') {
+    void recordAction(direction === 'left' ? 'ad_skip' : 'ad_impression', '', {
+      adId: home.adId,
+      direction,
+      save,
+      source: 'feed',
+    });
+    return;
+  }
   void recordAction('view', home.id, { direction, save }).then((allowed) => {
     if (allowed && save) {
       void recordAction('favorite', home.id, { source: 'swipe' });
@@ -943,6 +1059,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
     return;
   }
 
+  const isAd = home.kind === 'ad';
   state.animating = true;
   const likeStamp = card.querySelector('.stamp.like');
   const skipStamp = card.querySelector('.stamp.skip');
@@ -952,7 +1069,11 @@ function animateAndAdvance(direction, { save = false } = {}) {
   consumeViewOptimistically(home);
   trackSwipeActions(home, direction, save);
 
-  if (save) {
+  if (save && isAd) {
+    void recordAction('ad_click', '', { adId: home.adId, source: 'swipe_right' });
+    openUrl(home.fbUrl);
+    haptic('medium');
+  } else if (save) {
     state.favorites.add(home.id);
     flyToBadge(card);
     haptic('medium');
@@ -974,7 +1095,8 @@ function animateAndAdvance(direction, { save = false } = {}) {
     advance(home);
     state.animating = false;
     render();
-    if (save) toast(t('addedToShortlist'));
+    if (save && isAd) toast(t('adOpened'));
+    else if (save) toast(t('addedToShortlist'));
   }, direction === 'right' ? 600 : 420);
 }
 
@@ -1095,7 +1217,7 @@ function setScreen(screen) {
 
 function renderShortlist() {
   const list = $('shortlist');
-  const saved = [...state.favorites].map((id) => homes.find((home) => home.id === id)).filter(Boolean);
+  const saved = [...state.favorites].map((id) => homes.find((home) => home.id === id)).filter((home) => home?.kind !== 'ad');
   $('shortlistCount').textContent = t('savedCount', { count: saved.length });
 
   if (!saved.length) {
@@ -1133,7 +1255,7 @@ function renderFilters() {
   $('cityChips').innerHTML = cityOptions().map(([value, label]) => chipButton(value, label, state.filters.city === value)).join('');
   $('typeChips').innerHTML = typeOptions().map(([value, label]) => chipButton(value, label, state.filters.type === value)).join('');
   $('bedChips').innerHTML = bedOptions().map(([value, label]) => chipButton(value, label, state.filters.beds === value)).join('');
-  $('resultCount').textContent = String(filteredHomes().length);
+  $('resultCount').textContent = String(filteredListingCount());
 }
 
 function chipButton(value, label, active) {
@@ -1141,7 +1263,7 @@ function chipButton(value, label, active) {
 }
 
 function renderProfile() {
-  const seen = Object.values(state.seen).reduce((sum, count) => sum + Number(count || 0), 0);
+  const seen = Object.entries(state.seen).reduce((sum, [id, count]) => id.startsWith('ad:') ? sum : sum + Number(count || 0), 0);
   $('profileSaved').textContent = String(state.favorites.size);
   $('profileSeen').textContent = String(seen);
   $('profileBudget').textContent = `$${Number(state.filters.budget).toLocaleString('en-US')}`;
@@ -1252,6 +1374,22 @@ function closePhotoViewer() {
   $('photoViewer').setAttribute('aria-hidden', 'true');
 }
 
+function openAd(home, source = 'card') {
+  if (!home?.fbUrl) return;
+  void recordAction('ad_click', '', { adId: home.adId, source });
+  openUrl(home.fbUrl);
+}
+
+function openCardInfo() {
+  const home = currentHome();
+  if (!home) return;
+  if (home.kind === 'ad') {
+    openAd(home, 'info_button');
+    return;
+  }
+  openDetail(home);
+}
+
 function showPaywall(reason = 'views') {
   state.paywallOpen = true;
   const supportUrl = state.session?.subscription?.supportUrl || window.VIETNEST_SUBSCRIPTION_URL || 'https://t.me/teamgenius_support';
@@ -1288,6 +1426,10 @@ function closeDetail() {
 
 function openListingContact(home, source) {
   if (!home) return;
+  if (home.kind === 'ad') {
+    openAd(home, source);
+    return;
+  }
   if (contactsLocked() || !home.fbUrl) {
     showPaywall('contacts');
     void recordAction('open_contact', home.id, { source, locked: true });
@@ -1300,6 +1442,10 @@ function openListingContact(home, source) {
 async function saveDetail() {
   const home = activeDetail();
   if (!home) return;
+  if (home.kind === 'ad') {
+    openAd(home, 'detail_primary');
+    return;
+  }
   if (state.favorites.has(home.id)) {
     openListingContact(home, 'detail_primary');
     return;
@@ -1313,6 +1459,15 @@ async function saveDetail() {
 }
 
 async function loadHomes() {
+  try {
+    const data = await api('/api/feed');
+    if (Array.isArray(data) && data.length) {
+      homes = data.map(normalizeFeedItem).filter(Boolean);
+      return;
+    }
+  } catch (error) {
+    console.warn('Feed unavailable, trying listings:', error);
+  }
   try {
     const data = await api('/api/listings');
     if (Array.isArray(data) && data.length) homes = data.map(normalizeHome);
@@ -1377,7 +1532,7 @@ function bind() {
   $('openFiltersTop').addEventListener('click', () => setScreen('filters'));
   $('skipBtn').addEventListener('click', () => animateAndAdvance('left'));
   $('likeBtn').addEventListener('click', () => animateAndAdvance('right', { save: true }));
-  $('infoBtn').addEventListener('click', () => openDetail());
+  $('infoBtn').addEventListener('click', openCardInfo);
   $('resetDeckBtn').addEventListener('click', () => {
     resetQueue({ clearSeen: true });
     render();

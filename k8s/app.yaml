@@ -37,6 +37,10 @@ spec:
               value: "30"
             - name: PAYWALL_ENABLED
               value: "false"
+            - name: ADS_ENABLED
+              value: "true"
+            - name: AD_FREQUENCY
+              value: "6"
             - name: TELEGRAM_SUBSCRIPTION_URL
               value: "https://t.me/nemelokkk"
             - name: TELEGRAM_MINIAPP_URL

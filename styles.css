@@ -265,6 +265,12 @@ html[data-theme="warm"] .filter-head h2 {
   background: linear-gradient(180deg, rgba(10, 10, 20, .32) 0%, transparent 26%, transparent 50%, rgba(10, 10, 20, .86) 100%);
 }
 
+.home-card.is-ad .shade {
+  background:
+    linear-gradient(180deg, rgba(18, 20, 28, .34) 0%, rgba(18, 20, 28, .08) 34%, rgba(18, 20, 28, .88) 100%),
+    linear-gradient(135deg, rgba(255, 122, 133, .34), rgba(59, 91, 219, .24));
+}
+
 .card-chips {
   position: absolute;
   top: 22px;
@@ -344,6 +350,33 @@ html[data-theme="warm"] .filter-head h2 {
   color: rgba(255, 255, 255, .85);
   font-size: 12px;
   font-weight: 600;
+}
+
+.ad-copy .card-price strong {
+  font-family: var(--body);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.ad-copy .card-price span {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-copy h2 {
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 1.06;
+}
+
+.ad-copy p {
+  max-width: 92%;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, .9);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .photo-rail {
