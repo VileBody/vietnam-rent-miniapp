@@ -8,6 +8,7 @@
   --primary-soft: #e7edff;
   --accent: #ff7a85;
   --accent-soft: #ffe6e9;
+  --success: #2fb872;
   --nav-bg: rgba(255, 255, 255, .84);
   --shadow: 0 24px 50px -22px rgba(20, 20, 40, .5);
   --soft-shadow: 0 8px 20px -12px rgba(20, 20, 40, .26);
@@ -33,6 +34,7 @@ html[data-theme="warm"] {
   --primary-soft: #eceaff;
   --accent: #ef8468;
   --accent-soft: #fce6df;
+  --success: #3fa872;
   --nav-bg: rgba(255, 253, 248, .86);
   --shadow: 0 24px 50px -22px rgba(45, 35, 25, .42);
   --soft-shadow: 0 8px 20px -12px rgba(45, 35, 25, .24);
@@ -65,6 +67,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 html[data-theme="warm"] body {
@@ -200,6 +203,26 @@ html[data-theme="warm"] .filter-head h2 {
   box-shadow: var(--soft-shadow);
 }
 
+#openFiltersTop {
+  position: relative;
+  border-color: transparent;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
+#openFiltersTop.has-active::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--success);
+  border: 2px solid var(--primary);
+}
+
 .deck-wrap {
   position: relative;
   flex: 1 1 auto;
@@ -243,15 +266,11 @@ html[data-theme="warm"] .filter-head h2 {
 .home-card .photo {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   background: var(--primary-soft);
 }
 
-.home-card img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  transform: scale(1.015);
+.home-card .photo img {
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
@@ -259,9 +278,30 @@ html[data-theme="warm"] .filter-head h2 {
   -webkit-touch-callout: none;
 }
 
+.home-card .photo-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: blur(28px) brightness(.6) saturate(1.1);
+  transform: scale(1.25);
+}
+
+.home-card .photo-main {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
 .home-card .shade {
   position: absolute;
   inset: 0;
+  z-index: 2;
   background: linear-gradient(180deg, rgba(10, 10, 20, .32) 0%, transparent 26%, transparent 50%, rgba(10, 10, 20, .86) 100%);
 }
 
@@ -518,6 +558,7 @@ html[data-theme="warm"] .filter-head h2 {
 
 .stamp.like {
   left: 22px;
+  color: var(--success);
   transform: rotate(-14deg);
 }
 
@@ -608,6 +649,18 @@ html[data-theme="warm"] .filter-head h2 {
   width: 58px;
   height: 58px;
   border: 1px solid var(--line);
+}
+
+.round-action.undo {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  color: var(--sub);
+}
+
+.round-action.undo:disabled {
+  opacity: .35;
+  pointer-events: none;
 }
 
 .round-action.info {

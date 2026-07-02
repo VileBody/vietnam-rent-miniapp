@@ -82,6 +82,9 @@ const I18N = {
     viewerPhotoAlt: '{title} фото {number}',
     likedStamp: 'НРАВ',
     skippedStamp: 'НЕТ',
+    undoAria: 'Отменить последнее действие',
+    undoToast: 'Возвращено назад',
+    undoNothing: 'Отменять пока нечего',
     filtersApplied: 'Фильтры применены',
     addedToShortlist: 'Добавлено в избранное',
     sponsored: 'Реклама',
@@ -172,6 +175,9 @@ const I18N = {
     viewerPhotoAlt: '{title} photo {number}',
     likedStamp: 'LIKE',
     skippedStamp: 'SKIP',
+    undoAria: 'Undo last action',
+    undoToast: 'Brought back',
+    undoNothing: 'Nothing to undo yet',
     filtersApplied: 'Filters applied',
     addedToShortlist: 'Added to shortlist',
     sponsored: 'Sponsored',
@@ -407,6 +413,7 @@ function applyI18n() {
   setAria('screen-profile', t('profile'));
   setAria('openFiltersTop', t('openFilters'));
   setAria('actionsLabel', t('actions'));
+  setAria('undoBtn', t('undoAria'));
   setAria('skipBtn', t('skip'));
   setAria('infoBtn', t('info'));
   setAria('likeBtn', t('addFavorite'));
@@ -1048,7 +1055,8 @@ function cardMarkup(home, depth) {
   if (home.kind === 'ad') {
     return `
       <div class="photo">
-        <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
+        <img class="photo-bg" src="${escapeHTML(photo)}" alt="" aria-hidden="true" draggable="false" />
+        <img class="photo-main" src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
         <div class="shade"></div>
       </div>
       <div class="card-chips">
@@ -1072,7 +1080,8 @@ function cardMarkup(home, depth) {
   }
   return `
     <div class="photo">
-      <img src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
+      <img class="photo-bg" src="${escapeHTML(photo)}" alt="" aria-hidden="true" draggable="false" />
+      <img class="photo-main" src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
       <div class="shade"></div>
       ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="${escapeHTML(t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }))}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
@@ -1184,11 +1193,46 @@ function flyToBadge(card) {
   }, 560);
 }
 
-function advance(home) {
+function advance(home, meta = {}) {
   state.seen[home.id] = Number(state.seen[home.id] || 0) + 1;
-  state.history.push(home.id);
+  state.history.push({
+    id: home.id,
+    saved: Boolean(meta.saved),
+    wasFavorite: Boolean(meta.wasFavorite),
+  });
   state.queue = state.queue.filter((id) => id !== home.id);
   saveState();
+}
+
+function undoLastSwipe() {
+  if (state.animating) return;
+  const entry = state.history.pop();
+  const id = typeof entry === 'string' ? entry : entry?.id;
+  if (!id) {
+    toast(t('undoNothing'));
+    return;
+  }
+
+  const home = homes.find((item) => item.id === id);
+  if (!home) {
+    render();
+    return;
+  }
+
+  const remainingViews = Math.max(0, Number(state.seen[id] || 0) - 1);
+  if (remainingViews > 0) state.seen[id] = remainingViews;
+  else delete state.seen[id];
+
+  if (entry?.saved && !entry.wasFavorite) {
+    state.favorites.delete(id);
+  }
+
+  state.queue = state.queue.filter((itemID) => itemID !== id);
+  state.queue.unshift(id);
+  saveState();
+  render();
+  toast(t('undoToast'));
+  haptic('light');
 }
 
 function isSessionPaywalled() {
@@ -1302,6 +1346,8 @@ function animateAndAdvance(direction, { save = false } = {}) {
   const isAd = home.kind === 'ad';
   const isTadsStatic = isTadsStaticHome(home);
   const showFullscreenAfterAdvance = shouldShowTadsFullscreen(home);
+  const wasFavorite = state.favorites.has(home.id);
+  const savedBySwipe = save && !isAd && !isTadsStatic;
   state.animating = true;
   const likeStamp = card.querySelector('.stamp.like');
   const skipStamp = card.querySelector('.stamp.skip');
@@ -1336,7 +1382,7 @@ function animateAndAdvance(direction, { save = false } = {}) {
   card.style.opacity = '0';
 
   window.setTimeout(() => {
-    advance(home);
+    advance(home, { saved: savedBySwipe, wasFavorite });
     state.animating = false;
     render();
     if (showFullscreenAfterAdvance) window.setTimeout(() => showTadsFullscreen('after_listing_swipes'), 320);
@@ -1349,10 +1395,13 @@ function refreshTopCardPhoto(home) {
   const card = $$('.home-card', $('deck')).find((node) => node.dataset.id === home.id);
   if (!card) return;
   const selectedPhoto = photoIndex(home);
-  const image = card.querySelector('.photo img');
+  const nextSrc = home.photos[selectedPhoto] || home.photos[0];
+  const bg = card.querySelector('.photo-bg');
+  const image = card.querySelector('.photo-main');
   const progress = card.querySelector('.photo-rail');
   const progressFill = card.querySelector('.photo-rail span');
-  if (image) image.src = home.photos[selectedPhoto] || home.photos[0];
+  if (bg) bg.src = nextSrc;
+  if (image) image.src = nextSrc;
   if (progress) {
     progress.setAttribute('aria-label', t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }));
     progress.setAttribute('aria-valuenow', String(selectedPhoto + 1));
@@ -1367,6 +1416,7 @@ function attachDrag(card) {
   let dy = 0;
   let dragging = false;
   let pointerId = null;
+  let maxMove = 0;
 
   function resetCard() {
     card.classList.remove('dragging');
@@ -1402,6 +1452,7 @@ function attachDrag(card) {
     startY = event.clientY;
     dx = 0;
     dy = 0;
+    maxMove = 0;
     card.classList.add('dragging');
     card.setPointerCapture?.(pointerId);
   });
@@ -1411,6 +1462,7 @@ function attachDrag(card) {
     event.preventDefault();
     dx = event.clientX - startX;
     dy = event.clientY - startY;
+    maxMove = Math.max(maxMove, Math.hypot(dx, dy));
     card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * .05}deg)`;
     card.querySelector('.stamp.like').style.opacity = dx > 0 ? String(clamp(dx / 110, 0, 1)) : '0';
     card.querySelector('.stamp.skip').style.opacity = dx < 0 ? String(clamp(-dx / 110, 0, 1)) : '0';
@@ -1421,7 +1473,7 @@ function attachDrag(card) {
     dragging = false;
     card.classList.remove('dragging');
     releasePointer();
-    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+    if (maxMove < 14) {
       const home = currentHome();
       if (home?.photos?.length > 1) {
         const rect = card.getBoundingClientRect();
@@ -1780,6 +1832,7 @@ function bindFilters() {
 function bind() {
   $$('.tab').forEach((tab) => tab.addEventListener('click', () => setScreen(tab.dataset.screen)));
   $('openFiltersTop').addEventListener('click', () => setScreen('filters'));
+  $('undoBtn').addEventListener('click', undoLastSwipe);
   $('skipBtn').addEventListener('click', () => animateAndAdvance('left'));
   $('likeBtn').addEventListener('click', () => animateAndAdvance('right', { save: true }));
   $('infoBtn').addEventListener('click', openCardInfo);
@@ -1846,9 +1899,20 @@ function bind() {
   bindFilters();
 }
 
+function hasActiveFilters() {
+  const f = state.filters;
+  return f.city !== defaultFilters.city
+    || f.type !== defaultFilters.type
+    || f.beds !== defaultFilters.beds
+    || f.budget !== defaultFilters.budget
+    || f.furnished !== defaultFilters.furnished;
+}
+
 function render() {
   renderDeck();
   renderCounters();
+  $('openFiltersTop')?.classList.toggle('has-active', hasActiveFilters());
+  $('undoBtn').disabled = state.history.length === 0;
   if (state.screen === 'filters') renderFilters();
   if (state.screen === 'profile') renderProfile();
   saveState();
