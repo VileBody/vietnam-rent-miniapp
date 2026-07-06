@@ -84,6 +84,11 @@
           </fieldset>
 
           <fieldset class="filter-block">
+            <legend id="currencyLegend">Валюта</legend>
+            <div class="chip-grid" id="currencyChips"></div>
+          </fieldset>
+
+          <fieldset class="filter-block">
             <legend id="typeLegend">Тип жилья</legend>
             <div class="chip-grid" id="typeChips"></div>
           </fieldset>
@@ -113,10 +118,19 @@
             <p id="profileHeaderSubtitle">Ищем жилье во Вьетнаме</p>
           </div>
         </header>
+        <div class="search-plan-card">
+          <span id="currentSearchLabel">Текущий поиск</span>
+          <strong id="searchSummary">Весь Вьетнам · до $2500</strong>
+          <p id="searchResultSummary">0 вариантов под текущие фильтры</p>
+          <div class="search-actions">
+            <button id="editSearchBtn" type="button">Фильтры</button>
+            <button id="resetSeenBtn" type="button">Вернуть просмотренные</button>
+          </div>
+        </div>
         <div class="profile-card">
-          <div class="avatar">A</div>
+          <div class="avatar">VN</div>
           <div>
-            <strong>Anna K.</strong>
+            <strong>VietNest</strong>
             <span id="profileSubtitle">Da Nang · Nha Trang</span>
           </div>
         </div>
@@ -128,8 +142,13 @@
           <div><span id="profileBudgetLabel">Бюджет</span><strong id="profileBudget">$2500</strong></div>
           <div><span id="profileCityLabel">Город</span><strong id="profileCities">Все</strong></div>
           <div><span id="profileTypeLabel">Тип</span><strong id="profileType">Любой</strong></div>
+          <div><span id="profileCurrencyLabel">Валюта</span><strong id="profileCurrency">USD</strong></div>
           <button class="menu-row-button" id="languageToggleBtn" type="button"><span id="profileLanguageLabel">Язык</span><strong id="profileLanguageValue">RU</strong></button>
         </div>
+        <section class="search-preview" aria-labelledby="searchPreviewTitle">
+          <h3 id="searchPreviewTitle">Ближайшие варианты</h3>
+          <div class="search-preview-list" id="searchPreviewList"></div>
+        </section>
       </section>
     </main>
 

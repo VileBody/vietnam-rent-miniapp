@@ -22,7 +22,7 @@ const I18N = {
     discover: 'Подбор',
     shortlist: 'Избранное',
     filters: 'Фильтры',
-    profile: 'Профиль',
+    profile: 'Мои поиски',
     actions: 'Действия',
     openFilters: 'Фильтры',
     skip: 'Пропустить',
@@ -34,6 +34,7 @@ const I18N = {
     savedCount: '{count} сохранено',
     city: 'Город',
     budgetMonth: 'Бюджет / мес',
+    currency: 'Валюта',
     type: 'Тип жилья',
     bedrooms: 'Спальни',
     reset: 'Сбросить',
@@ -41,11 +42,18 @@ const I18N = {
     variants: 'вариантов',
     furnishedOnly: 'Только с мебелью',
     furnishedHint: 'Меблированные варианты',
-    profileHeaderSubtitle: 'Ищем жилье во Вьетнаме',
+    profileHeaderSubtitle: 'Сводка текущего поиска',
     saved: 'Сохранено',
     viewed: 'Просмотрено',
     budget: 'Бюджет',
     language: 'Язык',
+    currentSearch: 'Текущий поиск',
+    searchResults: '{count} вариантов под текущие фильтры',
+    searchPreview: 'Ближайшие варианты',
+    searchOpenFilters: 'Фильтры',
+    searchResetSeen: 'Вернуть просмотренные',
+    searchResetDone: 'Просмотренные снова наверху',
+    noSearchResults: 'Под эти фильтры ничего не нашлось.',
     allVietnam: 'Весь Вьетнам',
     all: 'Все',
     any: 'Любой',
@@ -115,7 +123,7 @@ const I18N = {
     discover: 'Discover',
     shortlist: 'Shortlist',
     filters: 'Filters',
-    profile: 'Profile',
+    profile: 'My searches',
     actions: 'Actions',
     openFilters: 'Filters',
     skip: 'Skip',
@@ -127,6 +135,7 @@ const I18N = {
     savedCount: '{count} saved',
     city: 'City',
     budgetMonth: 'Budget / mo',
+    currency: 'Currency',
     type: 'Home type',
     bedrooms: 'Bedrooms',
     reset: 'Reset',
@@ -134,11 +143,18 @@ const I18N = {
     variants: 'homes',
     furnishedOnly: 'Furnished only',
     furnishedHint: 'Ready-to-live homes',
-    profileHeaderSubtitle: 'Finding homes in Vietnam',
+    profileHeaderSubtitle: 'Current search summary',
     saved: 'Saved',
     viewed: 'Viewed',
     budget: 'Budget',
     language: 'Language',
+    currentSearch: 'Current search',
+    searchResults: '{count} homes match current filters',
+    searchPreview: 'Next homes',
+    searchOpenFilters: 'Filters',
+    searchResetSeen: 'Bring viewed back',
+    searchResetDone: 'Viewed homes are back on top',
+    noSearchResults: 'No homes match these filters.',
     allVietnam: 'All Vietnam',
     all: 'All',
     any: 'Any',
@@ -265,6 +281,14 @@ const cityLabels = {
 const cityCodes = ['all', 'danang', 'nhatrang', 'hoian', 'hcmc', 'phuquoc'];
 const typeCodes = ['all', 'apartment', 'villa'];
 const bedCodes = ['any', 'studio', '1', '2', '3'];
+const currencyCodes = ['usd', 'vnd', 'rub', 'kzt'];
+
+const CURRENCIES = {
+  usd: { label: 'USD', symbol: '$', locale: 'en-US', rate: 1, position: 'prefix' },
+  vnd: { label: 'VND', symbol: '₫', locale: 'en-US', rate: 25400, position: 'suffix' },
+  rub: { label: 'RUB', symbol: '₽', locale: 'ru-RU', rate: 80, position: 'suffix' },
+  kzt: { label: 'KZT', symbol: '₸', locale: 'ru-RU', rate: 480, position: 'suffix' },
+};
 
 const defaultFilters = {
   city: 'all',
@@ -272,6 +296,7 @@ const defaultFilters = {
   beds: 'any',
   budget: 2500,
   furnished: false,
+  currency: 'usd',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -404,6 +429,13 @@ function bedOptions() {
   return bedCodes.map((value) => [value, value === 'any' ? t('anyPlural') : value === 'studio' ? t('studio') : `${value}+`]);
 }
 
+function currencyOptions() {
+  return currencyCodes.map((value) => {
+    const currency = CURRENCIES[value] || CURRENCIES.usd;
+    return [value, `${currency.label} ${currency.symbol}`];
+  });
+}
+
 function applyI18n() {
   document.documentElement.lang = activeLanguage;
   setText('topSubtitle', t('topSubtitle'));
@@ -425,6 +457,7 @@ function applyI18n() {
   setText('resetFiltersBtn', t('reset'));
   setText('cityLegend', t('city'));
   setText('budgetLegend', t('budgetMonth'));
+  setText('currencyLegend', t('currency'));
   setText('typeLegend', t('type'));
   setText('bedLegend', t('bedrooms'));
   setText('furnishedTitle', t('furnishedOnly'));
@@ -437,8 +470,13 @@ function applyI18n() {
   setText('profileBudgetLabel', t('budget'));
   setText('profileCityLabel', t('city'));
   setText('profileTypeLabel', t('type'));
+  setText('profileCurrencyLabel', t('currency'));
   setText('profileLanguageLabel', t('language'));
   setText('profileLanguageValue', activeLanguage.toUpperCase());
+  setText('currentSearchLabel', t('currentSearch'));
+  setText('editSearchBtn', t('searchOpenFilters'));
+  setText('resetSeenBtn', t('searchResetSeen'));
+  setText('searchPreviewTitle', t('searchPreview'));
   setText('tabDiscover', t('discover'));
   setText('tabShortlist', t('shortlist'));
   setText('tabFilters', t('filters'));
@@ -602,6 +640,7 @@ function normalizeFilters(value) {
   filters.type = ['all', 'apartment', 'villa'].includes(filters.type) ? filters.type : 'all';
   filters.beds = ['any', 'studio', '1', '2', '3'].includes(String(filters.beds)) ? String(filters.beds) : 'any';
   filters.furnished = Boolean(filters.furnished);
+  filters.currency = CURRENCIES[filters.currency] ? filters.currency : defaultFilters.currency;
   return filters;
 }
 
@@ -622,6 +661,32 @@ function escapeHTML(value = '') {
 
 function cleanText(value = '') {
   return String(value).replace(/\s+/g, ' ').trim();
+}
+
+const preloadedPhotos = new Set();
+
+function preloadPhotos(urls) {
+  urls.forEach((url) => {
+    if (!url || preloadedPhotos.has(url)) return;
+    preloadedPhotos.add(url);
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+  });
+}
+
+function thumbUrl(url, width = 640) {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'images.unsplash.com') {
+      parsed.searchParams.set('w', String(width));
+      return parsed.toString();
+    }
+  } catch {
+    // Keep relative and opaque remote URLs untouched.
+  }
+  return url;
 }
 
 function tadsTgbWidgetId() {
@@ -806,7 +871,14 @@ function normalizeHome(raw, feedIndex = 0) {
     petFriendly: Boolean(raw.petFriendly || raw.pet_friendly || /pet|питом|живот/.test(pool)),
     furnished: /furnished|fully furnished|мебел|меблир|furniture/.test(pool),
     beds: inferBedrooms(pool),
+    lat: numberOrNull(raw.latitude ?? raw.lat),
+    lng: numberOrNull(raw.longitude ?? raw.lng),
   };
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && value !== null && value !== undefined ? number : null;
 }
 
 function normalizeAd(raw = {}, feedIndex = 0) {
@@ -948,9 +1020,26 @@ function currentHome() {
   return ensureQueue()[0] || null;
 }
 
+function convertPrice(usdValue) {
+  const currency = CURRENCIES[state.filters.currency] || CURRENCIES.usd;
+  const raw = Number(usdValue) * currency.rate;
+  const rounded = currency.rate >= 100 ? Math.round(raw / 100) * 100 : Math.round(raw);
+  return { amount: rounded, currency };
+}
+
+function formatMoney(usdValue) {
+  const { amount, currency } = convertPrice(usdValue);
+  const formatted = amount.toLocaleString(currency.locale);
+  return currency.position === 'prefix' ? `${currency.symbol}${formatted}` : `${formatted} ${currency.symbol}`;
+}
+
+function formatBudget(value = state.filters.budget) {
+  return activeLanguage === 'ru' ? `до ${formatMoney(value)}` : `up to ${formatMoney(value)}`;
+}
+
 function money(value) {
   if (!value) return t('priceRequest');
-  return `$${Number(value).toLocaleString('en-US')}`;
+  return formatMoney(value);
 }
 
 function displayFresh(value = '') {
@@ -1037,6 +1126,8 @@ function displaySpecs(home) {
 function cardMarkup(home, depth) {
   const selectedPhoto = photoIndex(home);
   const photo = home.photos[selectedPhoto] || home.photos[0];
+  const cardPhoto = thumbUrl(photo, 960);
+  const bgPhoto = thumbUrl(photo, 480);
   const progressPercent = home.photos.length > 1 ? ((selectedPhoto + 1) / home.photos.length) * 100 : 0;
   const specs = displaySpecs(home);
   if (isTadsStaticHome(home)) {
@@ -1064,8 +1155,8 @@ function cardMarkup(home, depth) {
   if (home.kind === 'ad') {
     return `
       <div class="photo">
-        <img class="photo-bg" src="${escapeHTML(photo)}" alt="" aria-hidden="true" draggable="false" />
-        <img class="photo-main" src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
+        <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" />
+        <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" />
         <div class="shade"></div>
       </div>
       <div class="card-chips">
@@ -1089,8 +1180,8 @@ function cardMarkup(home, depth) {
   }
   return `
     <div class="photo">
-      <img class="photo-bg" src="${escapeHTML(photo)}" alt="" aria-hidden="true" draggable="false" />
-      <img class="photo-main" src="${escapeHTML(photo)}" alt="${escapeHTML(home.title)}" draggable="false" />
+      <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" />
+      <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" />
       <div class="shade"></div>
       ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="${escapeHTML(t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }))}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
@@ -1124,6 +1215,8 @@ function renderDeck() {
     $('emptyState').classList.add('is-visible');
     return;
   }
+
+  preloadPhotos(queue.slice(0, 4).flatMap((home) => home.photos.slice(0, 2).map((photo) => thumbUrl(photo, 960))));
 
   queue.slice(0, 3).reverse().forEach((home, reverseIndex, stack) => {
     const depth = stack.length - reverseIndex - 1;
@@ -1572,7 +1665,7 @@ function renderShortlist() {
 
   list.innerHTML = saved.map((home) => `
     <article class="saved-card" data-id="${escapeHTML(home.id)}">
-      <img src="${escapeHTML(home.photos[0])}" alt="${escapeHTML(home.title)}" />
+      <img src="${escapeHTML(thumbUrl(home.photos[0], 360))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
       <div>
         <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
         <h3>${escapeHTML(home.area)}</h3>
@@ -1587,11 +1680,10 @@ function renderShortlist() {
 
 function renderFilters() {
   $('budgetRange').value = String(state.filters.budget);
-  $('budgetLabel').textContent = activeLanguage === 'ru'
-    ? `до $${Number(state.filters.budget).toLocaleString('en-US')}`
-    : `up to $${Number(state.filters.budget).toLocaleString('en-US')}`;
+  $('budgetLabel').textContent = formatBudget();
   $('furnishedToggle').classList.toggle('is-active', state.filters.furnished);
   $('cityChips').innerHTML = cityOptions().map(([value, label]) => chipButton(value, label, state.filters.city === value)).join('');
+  $('currencyChips').innerHTML = currencyOptions().map(([value, label]) => chipButton(value, label, state.filters.currency === value)).join('');
   $('typeChips').innerHTML = typeOptions().map(([value, label]) => chipButton(value, label, state.filters.type === value)).join('');
   $('bedChips').innerHTML = bedOptions().map(([value, label]) => chipButton(value, label, state.filters.beds === value)).join('');
   $('resultCount').textContent = String(filteredListingCount());
@@ -1603,13 +1695,53 @@ function chipButton(value, label, active) {
 
 function renderProfile() {
   const seen = Object.entries(state.seen).reduce((sum, [id, count]) => id.startsWith('ad:') ? sum : sum + Number(count || 0), 0);
+  const resultCount = filteredListingCount();
+  const currency = CURRENCIES[state.filters.currency] || CURRENCIES.usd;
   $('profileSaved').textContent = String(state.favorites.size);
   $('profileSeen').textContent = String(seen);
-  $('profileBudget').textContent = `$${Number(state.filters.budget).toLocaleString('en-US')}`;
+  $('profileBudget').textContent = formatMoney(state.filters.budget);
   $('profileCities').textContent = state.filters.city === 'all' ? t('all') : cityLabel(state.filters.city);
   $('profileType').textContent = typeLabel(state.filters.type);
+  $('profileCurrency').textContent = currency.label;
   $('profileSubtitle').textContent = state.filters.city === 'all' ? t('searchingAll') : t('searchingCity', { city: cityLabel(state.filters.city) });
   $('profileLanguageValue').textContent = activeLanguage.toUpperCase();
+  $('searchSummary').textContent = searchSummary();
+  $('searchResultSummary').textContent = t('searchResults', { count: resultCount });
+  renderSearchPreview();
+}
+
+function searchSummary() {
+  const parts = [
+    state.filters.city === 'all' ? t('allVietnam') : cityLabel(state.filters.city),
+    formatBudget(),
+  ];
+  if (state.filters.type !== 'all') parts.push(typeLabel(state.filters.type));
+  if (state.filters.beds !== 'any') parts.push(state.filters.beds === 'studio' ? t('studio') : `${state.filters.beds}+ ${t('bedrooms').toLowerCase()}`);
+  if (state.filters.furnished) parts.push(t('furnished'));
+  return parts.join(' · ');
+}
+
+function searchPreviewCard(home) {
+  return `
+    <article class="search-preview-card" data-id="${escapeHTML(home.id)}">
+      <img src="${escapeHTML(thumbUrl(home.photos[0], 320))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
+      <div>
+        <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
+        <h4>${escapeHTML(home.area)}</h4>
+        <p>${escapeHTML(home.title)}</p>
+      </div>
+    </article>
+  `;
+}
+
+function renderSearchPreview() {
+  const list = $('searchPreviewList');
+  const items = filteredHomes().filter((home) => home.kind === 'listing').slice(0, 4);
+  if (!items.length) {
+    list.innerHTML = `<div class="search-preview-empty">${escapeHTML(t('noSearchResults'))}</div>`;
+    return;
+  }
+  list.innerHTML = items.map(searchPreviewCard).join('');
 }
 
 function renderCounters() {
@@ -1648,7 +1780,7 @@ function openDetail(home = currentHome(), { track = true } = {}) {
   $('detailTitle').textContent = home.title;
   $('detailArea').textContent = home.area;
   $('detailScore').textContent = String(fitScore(home));
-  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(photo)}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" /></button>`).join('');
+  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(thumbUrl(photo, 360))}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
   $('detailAbout').textContent = home.about;
   const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
@@ -1829,6 +1961,14 @@ function bindFilters() {
     renderFilters();
   });
 
+  $('currencyChips').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-value]');
+    if (!button) return;
+    state.filters.currency = button.dataset.value;
+    renderFilters();
+    if (state.screen === 'profile') renderProfile();
+  });
+
   $('typeChips').addEventListener('click', (event) => {
     const button = event.target.closest('button[data-value]');
     if (!button) return;
@@ -1874,6 +2014,12 @@ function bindFilters() {
 function bind() {
   $$('.tab').forEach((tab) => tab.addEventListener('click', () => setScreen(tab.dataset.screen)));
   $('openFiltersTop').addEventListener('click', () => setScreen('filters'));
+  $('editSearchBtn').addEventListener('click', () => setScreen('filters'));
+  $('resetSeenBtn').addEventListener('click', () => {
+    resetQueue({ clearSeen: true });
+    render();
+    toast(t('searchResetDone'));
+  });
   $('undoBtn').addEventListener('click', undoLastSwipe);
   $('skipBtn').addEventListener('click', () => animateAndAdvance('left'));
   $('likeBtn').addEventListener('click', () => animateAndAdvance('right', { save: true }));
@@ -1897,6 +2043,12 @@ function bind() {
     }
     const card = event.target.closest('.saved-card[data-id]');
     if (card) openDetail(homes.find((home) => home.id === card.dataset.id));
+  });
+
+  $('searchPreviewList').addEventListener('click', (event) => {
+    const card = event.target.closest('.search-preview-card[data-id]');
+    if (!card) return;
+    openDetail(homes.find((home) => home.id === card.dataset.id), { track: true });
   });
 
   $('closeDetailBtn').addEventListener('click', closeDetail);
@@ -1947,7 +2099,8 @@ function hasActiveFilters() {
     || f.type !== defaultFilters.type
     || f.beds !== defaultFilters.beds
     || f.budget !== defaultFilters.budget
-    || f.furnished !== defaultFilters.furnished;
+    || f.furnished !== defaultFilters.furnished
+    || f.currency !== defaultFilters.currency;
 }
 
 function render() {

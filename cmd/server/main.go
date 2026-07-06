@@ -45,6 +45,8 @@ type Listing struct {
 	AvailabilityStatus string    `json:"availabilityStatus"`
 	FirstSeenAt        time.Time `json:"firstSeenAt"`
 	LastSeenAt         time.Time `json:"lastSeenAt"`
+	Latitude           *float64  `json:"latitude,omitempty"`
+	Longitude          *float64  `json:"longitude,omitempty"`
 }
 
 type Contact struct {
@@ -2221,7 +2223,8 @@ const listingSelectSQL = `
 SELECT
   id, title, area, city, home_type, price_usd, match_score, source, fresh,
   specs, details, tags, about, contact_name, contact_line, contact_value,
-  fb_url, photos, pet_friendly, listing_status, availability_status, first_seen_at, last_seen_at
+  fb_url, photos, pet_friendly, listing_status, availability_status, first_seen_at, last_seen_at,
+  latitude, longitude
 FROM listings`
 
 type scanner interface {
@@ -2365,6 +2368,8 @@ func scanListing(row scanner) (Listing, error) {
 		&listing.AvailabilityStatus,
 		&listing.FirstSeenAt,
 		&listing.LastSeenAt,
+		&listing.Latitude,
+		&listing.Longitude,
 	)
 	return listing, err
 }
