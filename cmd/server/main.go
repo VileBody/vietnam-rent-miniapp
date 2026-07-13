@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -2458,6 +2459,10 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "index.html"
 	}
+	if strings.HasPrefix(path, "media/") {
+		serveMedia(w, r, strings.TrimPrefix(path, "media/"))
+		return
+	}
 	switch path {
 	case "config.js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
@@ -2498,6 +2503,30 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+}
+
+func serveMedia(w http.ResponseWriter, r *http.Request, name string) {
+	mediaRoot := strings.TrimSpace(os.Getenv("MEDIA_ROOT"))
+	if mediaRoot == "" {
+		mediaRoot = "/app/media"
+	}
+	root, err := filepath.Abs(mediaRoot)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	cleanName := strings.TrimPrefix(filepath.Clean("/"+name), string(os.PathSeparator))
+	filePath, err := filepath.Abs(filepath.Join(root, cleanName))
+	if err != nil || (filePath != root && !strings.HasPrefix(filePath, root+string(os.PathSeparator))) {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := os.Stat(filePath); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
+	http.ServeFile(w, r, filePath)
 }
 
 func uiTheme() string {

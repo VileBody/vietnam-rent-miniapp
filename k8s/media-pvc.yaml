@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vietnest-media
+  namespace: vietnam-rent
+  labels:
+    app.kubernetes.io/name: vietnest-media
+    app.kubernetes.io/part-of: vietnam-rent-miniapp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hdd.network-drives.csi.timeweb.cloud
+  resources:
+    requests:
+      storage: 1Gi

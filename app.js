@@ -19,6 +19,23 @@ const STORAGE = {
 const I18N = {
   ru: {
     topSubtitle: 'Аренда жилья во Вьетнаме',
+    region: 'регион',
+    shellSubtitle: 'аренда для поездки',
+    currentSearchKicker: 'текущий поиск',
+    matchingHomes: '{count} вариантов под ваши фильтры',
+    swipeView: 'Свайп',
+    listView: 'Список',
+    quickBest: 'Лучшее',
+    quickBeach: 'У моря',
+    quickWorkation: 'Workation',
+    quickVilla: 'Виллы',
+    quickCalm: 'Тихо',
+    quickPool: 'Бассейн',
+    quickPet: 'Pet OK',
+    map: 'Карта',
+    mapSubtitle: 'Варианты по текущим фильтрам',
+    mapEmptyTitle: 'Нет вариантов с координатами',
+    mapEmptyText: 'Измените фильтры, чтобы увидеть объявления на карте.',
     discover: 'Подбор',
     shortlist: 'Избранное',
     filters: 'Фильтры',
@@ -120,6 +137,23 @@ const I18N = {
   },
   en: {
     topSubtitle: 'Vietnam rentals',
+    region: 'region',
+    shellSubtitle: 'rentals for your trip',
+    currentSearchKicker: 'current search',
+    matchingHomes: '{count} homes match your filters',
+    swipeView: 'Swipe',
+    listView: 'List',
+    quickBest: 'Best',
+    quickBeach: 'Near the sea',
+    quickWorkation: 'Workation',
+    quickVilla: 'Villas',
+    quickCalm: 'Quiet',
+    quickPool: 'Pool',
+    quickPet: 'Pet OK',
+    map: 'Map',
+    mapSubtitle: 'Homes matching current filters',
+    mapEmptyTitle: 'No homes with coordinates',
+    mapEmptyText: 'Change the filters to see homes on the map.',
     discover: 'Discover',
     shortlist: 'Shortlist',
     filters: 'Filters',
@@ -337,6 +371,8 @@ const state = {
   language: activeLanguage,
   session: null,
   paywallOpen: false,
+  viewMode: 'swipe',
+  quickFilter: 'best',
   queue: [],
   history: [],
   animating: false,
@@ -439,10 +475,20 @@ function currencyOptions() {
 function applyI18n() {
   document.documentElement.lang = activeLanguage;
   setText('topSubtitle', t('topSubtitle'));
+  setText('shellCityCaption', t('region'));
+  setText('shellBrandSubtitle', t('shellSubtitle'));
+  setText('tripKicker', t('currentSearchKicker'));
+  setText('swipeViewBtn', t('swipeView'));
+  setText('listViewBtn', t('listView'));
+  setText('mapTitle', t('map'));
+  setText('mapSubtitle', t('mapSubtitle'));
+  setText('mapEmptyTitle', t('mapEmptyTitle'));
+  setText('mapEmptyText', t('mapEmptyText'));
   setAria('screen-discover', t('discover'));
   setAria('screen-shortlist', t('shortlist'));
   setAria('screen-filters', t('filters'));
   setAria('screen-profile', t('profile'));
+  setAria('screen-map', t('map'));
   setAria('openFiltersTop', t('openFilters'));
   setAria('actionsLabel', t('actions'));
   setAria('undoBtn', t('undoAria'));
@@ -481,6 +527,19 @@ function applyI18n() {
   setText('tabShortlist', t('shortlist'));
   setText('tabFilters', t('filters'));
   setText('tabProfile', t('profile'));
+  setText('tabMap', t('map'));
+  const quickLabels = {
+    best: t('quickBest'),
+    beach: t('quickBeach'),
+    workation: t('quickWorkation'),
+    villa: t('quickVilla'),
+    calm: t('quickCalm'),
+    pool: t('quickPool'),
+    pet: t('quickPet'),
+  };
+  $$('.quick-chip').forEach((button) => {
+    button.textContent = quickLabels[button.dataset.quick] || button.textContent;
+  });
   setAria('closeDetailBtn', t('back'));
   setAria('detailExpandBtn', t('expandPhoto'));
   setAria('detailLikeBtn', t('addFavorite'));
@@ -877,6 +936,11 @@ function normalizeHome(raw, feedIndex = 0) {
     beds: inferBedrooms(pool),
     lat: numberOrNull(raw.latitude ?? raw.lat),
     lng: numberOrNull(raw.longitude ?? raw.lng),
+    sourceLat: numberOrNull(raw.sourceLatitude ?? raw.source_latitude),
+    sourceLng: numberOrNull(raw.sourceLongitude ?? raw.source_longitude),
+    geocodedLat: numberOrNull(raw.geocodedLatitude ?? raw.geocoded_latitude),
+    geocodedLng: numberOrNull(raw.geocodedLongitude ?? raw.geocoded_longitude),
+    locationPrecision: cleanText(raw.locationPrecision || raw.location_precision || ''),
   };
 }
 
@@ -956,7 +1020,28 @@ function matchesFilters(home) {
   if (filters.furnished && !home.furnished) return false;
   if (filters.beds === 'studio') return home.beds === 0 || /studio|студ/.test(textPool(home));
   if (filters.beds !== 'any' && home.beds !== null && home.beds < Number(filters.beds)) return false;
+  if (!matchesQuickFilter(home)) return false;
   return true;
+}
+
+function matchesQuickFilter(home) {
+  const pool = textPool(home);
+  switch (state.quickFilter) {
+    case 'beach':
+      return /beach|sea view|near sea|my khe|nha trang bay|пляж|море|у моря/.test(pool);
+    case 'workation':
+      return /wifi|wi-fi|workspace|work desk|office|рабоч|интернет/.test(pool);
+    case 'villa':
+      return home.type === 'villa';
+    case 'calm':
+      return /quiet|peaceful|calm|тих|спокой/.test(pool);
+    case 'pool':
+      return /pool|бассейн/.test(pool);
+    case 'pet':
+      return home.petFriendly;
+    default:
+      return true;
+  }
 }
 
 function fitScore(home) {
@@ -1170,8 +1255,8 @@ function cardMarkup(home, depth) {
   if (home.kind === 'ad') {
     return `
       <div class="photo">
-        <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" />
-        <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" />
+        <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="480" />
+        <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="960" />
         <div class="shade"></div>
       </div>
       <div class="card-chips">
@@ -1195,8 +1280,8 @@ function cardMarkup(home, depth) {
   }
   return `
     <div class="photo">
-      <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" />
-      <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" />
+      <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="480" />
+      <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="960" />
       <div class="shade"></div>
       ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="${escapeHTML(t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }))}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
@@ -1246,6 +1331,101 @@ function renderDeck() {
     if (depth === 0) attachDrag(card);
   });
   mountTopTadsStaticCard();
+}
+
+function discoverListMarkup(home) {
+  const saved = state.favorites.has(home.id);
+  return `
+    <article class="discover-list-card" data-id="${escapeHTML(home.id)}">
+      <img src="${escapeHTML(thumbUrl(home.photos[0], 480))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" data-home-id="${escapeHTML(home.id)}" data-photo-index="0" data-photo-width="480" />
+      <div class="discover-list-copy">
+        <div>
+          <div class="discover-list-meta"><span>${escapeHTML(money(home.price))}</span><span>${escapeHTML(`${fitScore(home)}% ${t('fit')}`)}</span></div>
+          <h3>${escapeHTML(locationLabel(home))}</h3>
+          <p>${escapeHTML(home.title)}</p>
+        </div>
+        <div class="discover-list-actions">
+          <button data-action="details" type="button">${escapeHTML(t('info'))}</button>
+          <button data-action="save" type="button">${escapeHTML(saved ? t('saved') : t('addFavorite'))}</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderDiscoverList() {
+  const list = $('discoverList');
+  const items = filteredHomes().filter((home) => home.kind === 'listing');
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-list"><h3>${escapeHTML(t('noSearchResults'))}</h3></div>`;
+    return;
+  }
+  list.innerHTML = items.map(discoverListMarkup).join('');
+}
+
+function setViewMode(mode) {
+  state.viewMode = mode === 'list' ? 'list' : 'swipe';
+  $$('.view-toggle-button').forEach((button) => button.classList.toggle('is-active', button.dataset.view === state.viewMode));
+  $('swipeView').classList.toggle('is-hidden', state.viewMode !== 'swipe');
+  $('actionsLabel').classList.toggle('is-hidden', state.viewMode !== 'swipe');
+  $('discoverList').classList.toggle('is-hidden', state.viewMode !== 'list');
+  if (state.viewMode === 'list') renderDiscoverList();
+  else renderDeck();
+}
+
+let listingsMap = null;
+let listingMarkers = [];
+
+function mapCoordinates(home) {
+  const lat = home.sourceLat ?? home.geocodedLat ?? home.lat;
+  const lng = home.sourceLng ?? home.geocodedLng ?? home.lng;
+  return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+}
+
+function ensureListingsMap() {
+  if (listingsMap || !window.L) return listingsMap;
+  listingsMap = window.L.map('listingsMap', { zoomControl: true, attributionControl: false }).setView([16.0544, 108.2022], 6);
+  window.L.control.attribution({ prefix: '<a href="https://leafletjs.com">Leaflet</a>' }).addTo(listingsMap);
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(listingsMap);
+  return listingsMap;
+}
+
+function renderMap() {
+  const map = ensureListingsMap();
+  if (!map) return;
+  listingMarkers.forEach((marker) => marker.remove());
+  listingMarkers = [];
+  const items = filteredHomes().filter((home) => home.kind === 'listing' && mapCoordinates(home));
+  $('mapEmpty').classList.toggle('is-hidden', items.length > 0);
+  items.forEach((home) => {
+    const coordinates = mapCoordinates(home);
+    const marker = window.L.marker(coordinates).addTo(map);
+    marker.bindPopup(`<div class="map-popup"><strong>${escapeHTML(locationLabel(home))}</strong><span>${escapeHTML(money(home.price))} · ${escapeHTML(home.title)}</span><button type="button" data-map-home="${escapeHTML(home.id)}">${escapeHTML(t('info'))}</button></div>`);
+    listingMarkers.push(marker);
+  });
+  if (items.length) {
+    map.fitBounds(window.L.latLngBounds(items.map(mapCoordinates)), { padding: [24, 24], maxZoom: 14 });
+  } else {
+    map.setView([16.0544, 108.2022], 6);
+  }
+  window.setTimeout(() => map.invalidateSize(), 60);
+}
+
+function handleImageError(event) {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.dataset.homeId) return;
+  const home = homes.find((item) => item.id === image.dataset.homeId);
+  if (!home?.photos?.length) return;
+  const currentIndex = Number(image.dataset.photoIndex || 0);
+  const attempts = Number(image.dataset.fallbackAttempts || 0);
+  if (attempts >= home.photos.length) return;
+  const nextIndex = (currentIndex + 1) % home.photos.length;
+  image.dataset.photoIndex = String(nextIndex);
+  image.dataset.fallbackAttempts = String(attempts + 1);
+  image.src = thumbUrl(home.photos[nextIndex], Number(image.dataset.photoWidth || 960));
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -1659,7 +1839,8 @@ function setScreen(screen) {
   if (screen === 'shortlist') renderShortlist();
   if (screen === 'filters') renderFilters();
   if (screen === 'profile') renderProfile();
-  if (screen === 'discover') renderDeck();
+  if (screen === 'map') renderMap();
+  if (screen === 'discover') setViewMode(state.viewMode);
 }
 
 function renderShortlist() {
@@ -1680,7 +1861,7 @@ function renderShortlist() {
 
   list.innerHTML = saved.map((home) => `
     <article class="saved-card" data-id="${escapeHTML(home.id)}">
-      <img src="${escapeHTML(thumbUrl(home.photos[0], 360))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
+      <img src="${escapeHTML(thumbUrl(home.photos[0], 360))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" data-home-id="${escapeHTML(home.id)}" data-photo-index="0" data-photo-width="360" />
       <div>
         <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
         <h3>${escapeHTML(locationLabel(home))}</h3>
@@ -1739,7 +1920,7 @@ function searchSummary() {
 function searchPreviewCard(home) {
   return `
     <article class="search-preview-card" data-id="${escapeHTML(home.id)}">
-      <img src="${escapeHTML(thumbUrl(home.photos[0], 320))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
+      <img src="${escapeHTML(thumbUrl(home.photos[0], 320))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" data-home-id="${escapeHTML(home.id)}" data-photo-index="0" data-photo-width="320" />
       <div>
         <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
         <h4>${escapeHTML(locationLabel(home))}</h4>
@@ -1763,8 +1944,18 @@ function renderCounters() {
   const count = state.favorites.size;
   $('shortlistBadge').textContent = String(count);
   $('shortlistBadge').classList.toggle('is-visible', count > 0);
+  $('favoriteShortcutCount').textContent = String(count);
   if (state.screen === 'shortlist') renderShortlist();
   if (state.screen === 'profile') renderProfile();
+}
+
+function renderShell() {
+  const count = filteredListingCount();
+  $('shellCity').textContent = state.filters.city === 'all' ? t('vietnam') : cityLabel(state.filters.city);
+  $('tripSummary').textContent = searchSummary();
+  $('tripSubline').textContent = t('matchingHomes', { count });
+  $('favoriteShortcutCount').textContent = String(state.favorites.size);
+  $$('.quick-chip').forEach((button) => button.classList.toggle('is-active', button.dataset.quick === state.quickFilter));
 }
 
 function activeDetail() {
@@ -1795,7 +1986,7 @@ function openDetail(home = currentHome(), { track = true } = {}) {
   $('detailTitle').textContent = home.title;
   $('detailArea').textContent = locationLabel(home);
   $('detailScore').textContent = String(fitScore(home));
-  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(thumbUrl(photo, 360))}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" /></button>`).join('');
+  $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(thumbUrl(photo, 360))}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" data-home-id="${escapeHTML(home.id)}" data-photo-index="${index}" data-photo-width="360" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
   $('detailAbout').textContent = home.about;
   const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
@@ -2029,7 +2220,16 @@ function bindFilters() {
 function bind() {
   $$('.tab').forEach((tab) => tab.addEventListener('click', () => setScreen(tab.dataset.screen)));
   $('openFiltersTop').addEventListener('click', () => setScreen('filters'));
+  $('mapFiltersBtn').addEventListener('click', () => setScreen('filters'));
+  $('cityShortcut').addEventListener('click', () => setScreen('filters'));
+  $('favoriteShortcut').addEventListener('click', () => setScreen('shortlist'));
   $('editSearchBtn').addEventListener('click', () => setScreen('filters'));
+  $$('.view-toggle-button').forEach((button) => button.addEventListener('click', () => setViewMode(button.dataset.view)));
+  $$('.quick-chip').forEach((button) => button.addEventListener('click', () => {
+    state.quickFilter = button.dataset.quick || 'best';
+    resetQueue();
+    render();
+  }));
   $('resetSeenBtn').addEventListener('click', () => {
     resetQueue({ clearSeen: true });
     render();
@@ -2058,6 +2258,29 @@ function bind() {
     }
     const card = event.target.closest('.saved-card[data-id]');
     if (card) openDetail(homes.find((home) => home.id === card.dataset.id));
+  });
+
+  $('discoverList').addEventListener('click', (event) => {
+    const card = event.target.closest('.discover-list-card[data-id]');
+    if (!card) return;
+    const home = homes.find((item) => item.id === card.dataset.id);
+    if (!home) return;
+    const action = event.target.closest('button[data-action]')?.dataset.action;
+    if (action === 'save') {
+      if (state.favorites.has(home.id)) state.favorites.delete(home.id);
+      else state.favorites.add(home.id);
+      void recordAction(state.favorites.has(home.id) ? 'favorite' : 'unfavorite', home.id, { source: 'discover_list' });
+      saveState();
+      render();
+      return;
+    }
+    openDetail(home, { track: true });
+  });
+
+  $('screen-map').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-map-home]');
+    if (!button) return;
+    openDetail(homes.find((home) => home.id === button.dataset.mapHome), { track: true });
   });
 
   $('searchPreviewList').addEventListener('click', (event) => {
@@ -2106,6 +2329,7 @@ function bind() {
   });
 
   bindFilters();
+  document.addEventListener('error', handleImageError, true);
 }
 
 function hasActiveFilters() {
@@ -2119,12 +2343,15 @@ function hasActiveFilters() {
 }
 
 function render() {
-  renderDeck();
+  if (state.viewMode === 'list') renderDiscoverList();
+  else renderDeck();
   renderCounters();
+  renderShell();
   $('openFiltersTop')?.classList.toggle('has-active', hasActiveFilters());
   $('undoBtn').disabled = state.history.length === 0;
   if (state.screen === 'filters') renderFilters();
   if (state.screen === 'profile') renderProfile();
+  if (state.screen === 'map') renderMap();
   saveState();
 }
 

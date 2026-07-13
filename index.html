@@ -8,23 +8,54 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app-shell">
+    <header class="shell-topbar">
+      <button class="location-pill" id="cityShortcut" type="button" aria-label="Выбрать город">
+        <span id="shellCity">Вьетнам</span>
+        <b id="shellCityCaption">регион</b>
+      </button>
+      <div class="shell-brand" aria-label="VietNest">
+        <strong>VietNest</strong>
+        <span id="shellBrandSubtitle">аренда для поездки</span>
+      </div>
+      <button class="shell-favorite" id="favoriteShortcut" type="button" aria-label="Открыть избранное">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
+        <b id="favoriteShortcutCount">0</b>
+      </button>
+    </header>
     <main class="screens">
       <section class="screen screen-discover is-active" id="screen-discover" aria-label="Подбор">
-        <header class="topline">
+        <div class="trip-panel">
           <div>
-            <h1>VietNest</h1>
-            <p id="topSubtitle">Аренда жилья во Вьетнаме</p>
+            <span id="tripKicker">текущий поиск</span>
+            <strong id="tripSummary">Весь Вьетнам · до $2500</strong>
+            <p id="tripSubline">варианты под ваши фильтры</p>
           </div>
           <button class="icon-button" id="openFiltersTop" type="button" aria-label="Фильтры">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.4"/><circle cx="11" cy="17" r="2.4"/></svg>
           </button>
-        </header>
+        </div>
 
-        <div class="deck-wrap">
+        <div class="quick-rail" id="quickRail" aria-label="Быстрые режимы">
+          <button class="quick-chip is-active" data-quick="best" type="button">Лучшее</button>
+          <button class="quick-chip" data-quick="beach" type="button">У моря</button>
+          <button class="quick-chip" data-quick="workation" type="button">Workation</button>
+          <button class="quick-chip" data-quick="villa" type="button">Виллы</button>
+          <button class="quick-chip" data-quick="calm" type="button">Тихо</button>
+          <button class="quick-chip" data-quick="pool" type="button">Бассейн</button>
+          <button class="quick-chip" data-quick="pet" type="button">Pet OK</button>
+        </div>
+
+        <div class="view-toggle" role="tablist" aria-label="Режим просмотра">
+          <button class="view-toggle-button is-active" data-view="swipe" type="button" id="swipeViewBtn">Свайп</button>
+          <button class="view-toggle-button" data-view="list" type="button" id="listViewBtn">Список</button>
+        </div>
+
+        <div class="deck-wrap" id="swipeView">
           <div class="deck" id="deck" aria-live="polite">
             <div class="empty-state" id="emptyState">
               <span>
@@ -52,6 +83,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
           </button>
         </div>
+        <div class="discover-list is-hidden" id="discoverList"></div>
       </section>
 
       <section class="screen" id="screen-shortlist" aria-label="Избранное">
@@ -150,6 +182,23 @@
           <div class="search-preview-list" id="searchPreviewList"></div>
         </section>
       </section>
+
+      <section class="screen screen-map" id="screen-map" aria-label="Карта">
+        <header class="page-head map-head">
+          <div>
+            <h2 id="mapTitle">Карта</h2>
+            <p id="mapSubtitle">Варианты по текущим фильтрам</p>
+          </div>
+          <button class="icon-button" id="mapFiltersBtn" type="button" aria-label="Фильтры">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.4"/><circle cx="11" cy="17" r="2.4"/></svg>
+          </button>
+        </header>
+        <div class="map-wrap"><div id="listingsMap"></div></div>
+        <div class="map-empty is-hidden" id="mapEmpty">
+          <strong id="mapEmptyTitle">Нет вариантов с координатами</strong>
+          <p id="mapEmptyText">Измените фильтры, чтобы увидеть объявления на карте.</p>
+        </div>
+      </section>
     </main>
 
     <nav class="tabbar" aria-label="Навигация">
@@ -162,13 +211,13 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>
         <span id="tabShortlist">Избранное</span>
       </button>
-      <button class="tab" data-screen="filters" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.3"/><circle cx="11" cy="17" r="2.3"/></svg>
-        <span id="tabFilters">Фильтры</span>
-      </button>
       <button class="tab" data-screen="profile" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0113 0"/></svg>
         <span id="tabProfile">Профиль</span>
+      </button>
+      <button class="tab" data-screen="map" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2zM9 4v14M15 6v14"/></svg>
+        <span id="tabMap">Карта</span>
       </button>
     </nav>
   </div>
@@ -242,6 +291,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="./config.js"></script>
   <script src="./app.js"></script>
 </body>

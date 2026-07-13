@@ -125,6 +125,124 @@ svg {
   background: var(--bg);
 }
 
+.shell-topbar {
+  position: relative;
+  z-index: 50;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(88px, 1fr) auto minmax(48px, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--safe-top)) 16px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: var(--nav-bg);
+  backdrop-filter: blur(18px);
+}
+
+.shell-brand {
+  min-width: 0;
+  text-align: center;
+}
+
+.shell-brand strong {
+  display: block;
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+html[data-theme="warm"] .shell-brand strong {
+  font-weight: 400;
+}
+
+.shell-brand span {
+  display: block;
+  max-width: 180px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-pill,
+.shell-favorite {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--soft-shadow);
+}
+
+.location-pill {
+  justify-self: start;
+  width: min(112px, 100%);
+  height: 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 7px 11px;
+  border-radius: 14px;
+  text-align: left;
+}
+
+.location-pill span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-pill b {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.shell-favorite {
+  position: relative;
+  justify-self: end;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--accent);
+}
+
+.shell-favorite svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.shell-favorite b {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg);
+  border-radius: 9px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 9px;
+}
+
 .screens {
   flex: 1 1 auto;
   min-height: 0;
@@ -136,9 +254,216 @@ svg {
   inset: 0;
   display: none;
   min-height: 0;
-  padding: calc(16px + var(--safe-top)) 18px 12px;
+  padding: 12px 18px;
   overflow-y: auto;
   scrollbar-width: none;
+}
+
+.trip-panel {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--soft-shadow);
+}
+
+.trip-panel > div {
+  min-width: 0;
+}
+
+.trip-panel span {
+  display: block;
+  color: var(--primary);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.trip-panel strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-panel p {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.trip-panel .icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.quick-rail {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 7px;
+  margin: 8px -18px 0;
+  padding: 0 18px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quick-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-chip {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  color: var(--sub);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.quick-chip.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.view-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+.view-toggle-button {
+  min-height: 30px;
+  border-radius: 9px;
+  color: var(--sub);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.view-toggle-button.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--soft-shadow);
+}
+
+.discover-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  margin-top: 9px;
+  padding-bottom: 4px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.discover-list::-webkit-scrollbar {
+  display: none;
+}
+
+.discover-list.is-hidden,
+.deck-wrap.is-hidden,
+.actions.is-hidden,
+.map-empty.is-hidden {
+  display: none;
+}
+
+.discover-list-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  min-height: 112px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--soft-shadow);
+}
+
+.discover-list-card > img {
+  width: 112px;
+  height: 100%;
+  min-height: 112px;
+  object-fit: cover;
+  background: var(--primary-soft);
+}
+
+.discover-list-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px;
+}
+
+.discover-list-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--sub);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.discover-list-card h3 {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.discover-list-card p {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.discover-list-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.discover-list-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.discover-list-actions button[data-action="save"] {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
 }
 
 .screen::-webkit-scrollbar,
@@ -1256,7 +1581,33 @@ html[data-theme="warm"] .search-plan-card > strong {
 }
 
 html.is-telegram .screen {
-  padding: calc(10px + var(--safe-top)) 14px 8px;
+  padding: 8px 14px;
+}
+
+html.is-telegram .shell-topbar {
+  padding: calc(7px + var(--safe-top)) 14px 7px;
+}
+
+html.is-telegram .shell-brand strong {
+  font-size: 19px;
+}
+
+html.is-telegram .location-pill,
+html.is-telegram .shell-favorite {
+  height: 38px;
+}
+
+html.is-telegram .shell-favorite {
+  width: 38px;
+}
+
+html.is-telegram .trip-panel {
+  padding: 8px 10px;
+}
+
+html.is-telegram .quick-rail,
+html.is-telegram .view-toggle {
+  margin-top: 6px;
 }
 
 html.is-telegram .topline {
@@ -1348,6 +1699,87 @@ html.is-telegram .tab svg {
 
 .tab.bump svg {
   animation: pop .55s cubic-bezier(.34, 1.7, .5, 1);
+}
+
+.screen-map {
+  gap: 10px;
+}
+
+.map-head {
+  padding-bottom: 2px;
+}
+
+.map-wrap {
+  flex: 1 1 auto;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--primary-soft);
+  box-shadow: var(--soft-shadow);
+}
+
+#listingsMap {
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-container {
+  font-family: var(--body);
+  background: var(--primary-soft);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.map-popup {
+  min-width: 172px;
+}
+
+.map-popup strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.map-popup span {
+  display: block;
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.map-popup button {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 9px;
+  border-radius: 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.map-empty {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.map-empty strong {
+  font-size: 13px;
+}
+
+.map-empty p {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 @keyframes pop {
@@ -1843,8 +2275,34 @@ html.is-telegram .tab svg {
 }
 
 @media (max-height: 760px) {
+  .shell-topbar {
+    padding-top: calc(6px + var(--safe-top));
+    padding-bottom: 6px;
+  }
+
+  .location-pill,
+  .shell-favorite {
+    height: 34px;
+  }
+
+  .shell-favorite {
+    width: 34px;
+  }
+
+  .trip-panel {
+    padding: 7px 9px;
+  }
+
+  .quick-chip {
+    padding: 6px 9px;
+  }
+
+  .view-toggle-button {
+    min-height: 27px;
+  }
+
   html.is-telegram .screen {
-    padding: calc(8px + var(--safe-top)) 12px 7px;
+    padding: 6px 12px;
   }
 
   html.is-telegram .topline {

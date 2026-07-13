@@ -31,6 +31,8 @@ spec:
           env:
             - name: PORT
               value: "8080"
+            - name: MEDIA_ROOT
+              value: "/app/media"
             - name: VIETNEST_UI_THEME
               value: "warm"
             - name: FREE_VIEW_LIMIT
@@ -77,6 +79,14 @@ spec:
             limits:
               cpu: 300m
               memory: 256Mi
+          volumeMounts:
+            - name: media
+              mountPath: /app/media
+              readOnly: true
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: vietnest-media
 ---
 apiVersion: v1
 kind: Service
