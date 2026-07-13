@@ -852,6 +852,10 @@ function normalizeHome(raw, feedIndex = 0) {
     title,
     area: cleanText(raw.area || cityLabel(city)),
     city,
+    locationCity: cleanText(raw.locationCity || raw.location_city || ''),
+    locationDistrict: cleanText(raw.locationDistrict || raw.location_district || ''),
+    locationWard: cleanText(raw.locationWard || raw.location_ward || ''),
+    locationStreet: cleanText(raw.locationStreet || raw.location_street || ''),
     type,
     price: Number(raw.price || raw.priceUsd || raw.price_usd || 0),
     score: clamp(Number(raw.score || raw.matchScore || raw.match_score || 76), 0, 99),
@@ -1123,6 +1127,17 @@ function displaySpecs(home) {
   return specs.length ? specs.slice(0, 3) : home.specs.slice(0, 3);
 }
 
+function locationLabel(home) {
+  const area = cleanText(home.area || '').replace(/\s*,?\s*(Vietnam|Việt Nam|Вьетнам)\s*$/i, '').trim();
+  const city = area || cleanText(home.locationCity || '') || cityLabel(home.city) || t('vietnam');
+  const district = cleanText(home.locationDistrict || home.locationWard || '');
+  if (!district) return city;
+  const normalizedCity = city.toLocaleLowerCase();
+  const normalizedDistrict = district.toLocaleLowerCase();
+  if (normalizedCity.includes(normalizedDistrict) || normalizedDistrict.includes(normalizedCity)) return city;
+  return `${city} · ${district}`;
+}
+
 function cardMarkup(home, depth) {
   const selectedPhoto = photoIndex(home);
   const photo = home.photos[selectedPhoto] || home.photos[0];
@@ -1196,7 +1211,7 @@ function cardMarkup(home, depth) {
     <div class="stamp skip">${escapeHTML(t('skippedStamp'))}</div>
     <div class="card-copy">
       <div class="card-price"><strong>${escapeHTML(money(home.price))}</strong><span>${escapeHTML(t('monthShort'))}</span></div>
-      <h2>${escapeHTML(home.area)}</h2>
+      <h2>${escapeHTML(locationLabel(home))}</h2>
       <p>${escapeHTML(home.title)}</p>
       <div class="card-specs">
         ${specs.map((spec, index) => `<span>${specIcon(index)}${escapeHTML(spec)}</span>`).join('')}
@@ -1668,7 +1683,7 @@ function renderShortlist() {
       <img src="${escapeHTML(thumbUrl(home.photos[0], 360))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
       <div>
         <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
-        <h3>${escapeHTML(home.area)}</h3>
+        <h3>${escapeHTML(locationLabel(home))}</h3>
         <p>${escapeHTML(displaySpecs(home).join(' · '))}</p>
       </div>
       <button class="remove" data-remove="${escapeHTML(home.id)}" type="button" aria-label="${escapeHTML(t('remove'))}">
@@ -1727,7 +1742,7 @@ function searchPreviewCard(home) {
       <img src="${escapeHTML(thumbUrl(home.photos[0], 320))}" alt="${escapeHTML(home.title)}" loading="lazy" decoding="async" />
       <div>
         <strong>${escapeHTML(money(home.price))}<small> ${escapeHTML(t('monthShort'))}</small></strong>
-        <h4>${escapeHTML(home.area)}</h4>
+        <h4>${escapeHTML(locationLabel(home))}</h4>
         <p>${escapeHTML(home.title)}</p>
       </div>
     </article>
@@ -1778,7 +1793,7 @@ function openDetail(home = currentHome(), { track = true } = {}) {
   renderDetailPhoto(home);
   $('detailPrice').textContent = money(home.price);
   $('detailTitle').textContent = home.title;
-  $('detailArea').textContent = home.area;
+  $('detailArea').textContent = locationLabel(home);
   $('detailScore').textContent = String(fitScore(home));
   $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(thumbUrl(photo, 360))}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
