@@ -265,7 +265,7 @@ html[data-theme="warm"] .shell-brand strong {
 }
 
 .location-pill,
-.shell-favorite {
+.shell-filter {
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--soft-shadow);
@@ -304,7 +304,7 @@ html[data-theme="warm"] .shell-brand strong {
   text-transform: uppercase;
 }
 
-.shell-favorite {
+.shell-filter {
   position: relative;
   justify-self: end;
   width: 42px;
@@ -312,30 +312,14 @@ html[data-theme="warm"] .shell-brand strong {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  color: var(--accent);
+  color: #fff;
 }
 
-.shell-favorite svg {
+.shell-filter svg {
   width: 20px;
   height: 20px;
-  fill: currentColor;
-  stroke: none;
-}
-
-.shell-favorite b {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  padding: 0 4px;
-  border: 2px solid var(--bg);
-  border-radius: 9px;
-  background: var(--ink);
-  color: #fff;
-  font-size: 9px;
+  fill: none;
+  stroke: currentColor;
 }
 
 .screens {
@@ -352,56 +336,6 @@ html[data-theme="warm"] .shell-brand strong {
   padding: 12px 18px;
   overflow-y: auto;
   scrollbar-width: none;
-}
-
-.trip-panel {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: var(--soft-shadow);
-}
-
-.trip-panel > div {
-  min-width: 0;
-}
-
-.trip-panel span {
-  display: block;
-  color: var(--primary);
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.trip-panel strong {
-  display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trip-panel p {
-  margin-top: 4px;
-  color: var(--sub);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.trip-panel .icon-button {
-  width: 40px;
-  height: 40px;
-  border-radius: 13px;
 }
 
 .quick-rail {
@@ -1763,7 +1697,7 @@ html.is-telegram .shell-brand strong {
 }
 
 html.is-telegram .location-pill,
-html.is-telegram .shell-favorite {
+html.is-telegram .shell-filter {
   height: 38px;
 }
 
@@ -1776,12 +1710,8 @@ html.is-telegram .location-pill b {
   font-size: 7px;
 }
 
-html.is-telegram .shell-favorite {
+html.is-telegram .shell-filter {
   width: 38px;
-}
-
-html.is-telegram .trip-panel {
-  padding: 8px 10px;
 }
 
 html.is-telegram .quick-rail,
@@ -2467,7 +2397,7 @@ html.is-telegram .tab svg {
   }
 
   .location-pill,
-  .shell-favorite {
+  .shell-filter {
     height: 34px;
   }
 
@@ -2476,22 +2406,8 @@ html.is-telegram .tab svg {
     padding-bottom: 3px;
   }
 
-  .shell-favorite {
+  .shell-filter {
     width: 34px;
-  }
-
-  .trip-panel {
-    padding: 7px 9px;
-  }
-
-  .trip-panel span,
-  .trip-panel p {
-    display: none;
-  }
-
-  .trip-panel strong {
-    margin-top: 0;
-    font-size: 12px;
   }
 
   .screen-discover .quick-rail {

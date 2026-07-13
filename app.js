@@ -487,7 +487,6 @@ function applyI18n() {
   setText('topSubtitle', t('topSubtitle'));
   setText('shellCityCaption', t('region'));
   setText('shellBrandSubtitle', t('shellSubtitle'));
-  setText('tripKicker', t('currentSearchKicker'));
   setText('swipeViewBtn', t('swipeView'));
   setText('listViewBtn', t('listView'));
   setText('mapTitle', t('map'));
@@ -1420,6 +1419,7 @@ function setViewMode(mode) {
   state.viewMode = mode === 'list' ? 'list' : 'swipe';
   $$('.view-toggle-button').forEach((button) => button.classList.toggle('is-active', button.dataset.view === state.viewMode));
   $('swipeView').classList.toggle('is-hidden', state.viewMode !== 'swipe');
+  $('actionsLabel').classList.toggle('is-hidden', state.viewMode !== 'swipe');
   $('discoverList').classList.toggle('is-hidden', state.viewMode !== 'list');
   if (state.viewMode === 'list') renderDiscoverList();
   else renderDeck();
@@ -2017,17 +2017,12 @@ function renderCounters() {
   const count = state.favorites.size;
   $('shortlistBadge').textContent = String(count);
   $('shortlistBadge').classList.toggle('is-visible', count > 0);
-  $('favoriteShortcutCount').textContent = String(count);
   if (state.screen === 'shortlist') renderShortlist();
   if (state.screen === 'profile') renderProfile();
 }
 
 function renderShell() {
-  const count = filteredListingCount();
   $('shellCity').textContent = state.filters.city === 'all' ? t('vietnam') : cityLabel(state.filters.city);
-  $('tripSummary').textContent = searchSummary();
-  $('tripSubline').textContent = t('matchingHomes', { count });
-  $('favoriteShortcutCount').textContent = String(state.favorites.size);
   $$('.quick-chip').forEach((button) => button.classList.toggle('is-active', button.dataset.quick === state.quickFilter));
 }
 
@@ -2295,7 +2290,6 @@ function bind() {
   $('openFiltersTop').addEventListener('click', () => setScreen('filters'));
   $('mapFiltersBtn').addEventListener('click', () => setScreen('filters'));
   $('cityShortcut').addEventListener('click', () => setScreen('filters'));
-  $('favoriteShortcut').addEventListener('click', () => setScreen('shortlist'));
   $('editSearchBtn').addEventListener('click', () => setScreen('filters'));
   $$('.view-toggle-button').forEach((button) => button.addEventListener('click', () => setViewMode(button.dataset.view)));
   $$('.quick-chip').forEach((button) => button.addEventListener('click', () => {

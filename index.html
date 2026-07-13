@@ -31,24 +31,12 @@
         <strong>VietNest</strong>
         <span id="shellBrandSubtitle">аренда для поездки</span>
       </div>
-      <button class="shell-favorite" id="favoriteShortcut" type="button" aria-label="Открыть избранное">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
-        <b id="favoriteShortcutCount">0</b>
+      <button class="shell-filter" id="openFiltersTop" type="button" aria-label="Фильтры">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.4"/><circle cx="11" cy="17" r="2.4"/></svg>
       </button>
     </header>
     <main class="screens">
       <section class="screen screen-discover is-active" id="screen-discover" aria-label="Подбор">
-        <div class="trip-panel">
-          <div>
-            <span id="tripKicker">текущий поиск</span>
-            <strong id="tripSummary">Весь Вьетнам · до $2500</strong>
-            <p id="tripSubline">варианты под ваши фильтры</p>
-          </div>
-          <button class="icon-button" id="openFiltersTop" type="button" aria-label="Фильтры">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h6M14 17h6"/><circle cx="15" cy="7" r="2.4"/><circle cx="11" cy="17" r="2.4"/></svg>
-          </button>
-        </div>
-
         <div class="quick-rail" id="quickRail" aria-label="Быстрые режимы">
           <button class="quick-chip is-active" data-quick="best" type="button">Лучшее</button>
           <button class="quick-chip" data-quick="beach" type="button">У моря</button>
@@ -76,6 +64,18 @@
             </div>
           </div>
           <div class="fly-layer" id="flyLayer" aria-hidden="true"></div>
+        </div>
+
+        <div class="actions" id="actionsLabel" aria-label="Действия">
+          <button class="round-action undo" id="undoBtn" type="button" aria-label="Отменить">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 015 5v1"/></svg>
+          </button>
+          <button class="round-action skip" id="skipBtn" type="button" aria-label="Пропустить">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>
+          </button>
+          <button class="round-action like" id="likeBtn" type="button" aria-label="Добавить в избранное">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.6-9.9-9.3C.6 8.2 2.3 4.6 5.7 4.6c2 0 3.2 1.1 4.3 2.5C11.1 5.7 12.3 4.6 14.3 4.6c3.4 0 5.1 3.6 3.6 7.1C15.4 16.4 12 21 12 21z"/></svg>
+          </button>
         </div>
 
         <div class="discover-list is-hidden" id="discoverList"></div>
