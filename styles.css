@@ -1058,6 +1058,7 @@ html[data-theme="warm"] .filter-head h2 {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 24px;
 }
 
 .round-action {
@@ -1759,6 +1760,7 @@ html.is-telegram .deck-wrap {
 
 html.is-telegram .actions {
   height: 64px;
+  gap: 22px;
 }
 
 html.is-telegram .round-action.skip {
@@ -2450,6 +2452,7 @@ html.is-telegram .tab svg {
 
   html.is-telegram .actions {
     height: 54px;
+    gap: 20px;
   }
 
   html.is-telegram .round-action.skip {
