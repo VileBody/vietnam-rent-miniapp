@@ -1047,11 +1047,10 @@ html[data-theme="warm"] .filter-head h2 {
 
 .actions {
   flex: 0 0 auto;
-  height: 104px;
+  height: 76px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
 }
 
 .round-action {
@@ -1756,8 +1755,7 @@ html.is-telegram .deck-wrap {
 }
 
 html.is-telegram .actions {
-  height: 76px;
-  gap: 18px;
+  height: 64px;
 }
 
 html.is-telegram .round-action.skip {
@@ -2429,7 +2427,7 @@ html.is-telegram .tab svg {
 
   .screen-discover .deck-wrap {
     align-self: center;
-    width: min(100%, max(248px, calc((var(--app-height) - 285px) * .8)));
+    width: min(100%, max(248px, calc((var(--app-height) - 275px) * .8)));
   }
 
   .quick-chip {
@@ -2462,8 +2460,7 @@ html.is-telegram .tab svg {
   }
 
   html.is-telegram .actions {
-    height: 60px;
-    gap: 16px;
+    height: 54px;
   }
 
   html.is-telegram .round-action.skip {

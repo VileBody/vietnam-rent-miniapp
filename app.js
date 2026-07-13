@@ -2272,10 +2272,10 @@ function bind() {
     render();
     toast(t('searchResetDone'));
   });
-  $('undoBtn').addEventListener('click', undoLastSwipe);
-  $('skipBtn').addEventListener('click', () => animateAndAdvance('left'));
+  $('undoBtn')?.addEventListener('click', undoLastSwipe);
+  $('skipBtn')?.addEventListener('click', () => animateAndAdvance('left'));
   $('likeBtn').addEventListener('click', () => animateAndAdvance('right', { save: true }));
-  $('infoBtn').addEventListener('click', openCardInfo);
+  $('infoBtn')?.addEventListener('click', openCardInfo);
   $('resetDeckBtn').addEventListener('click', () => {
     resetQueue({ clearSeen: true });
     render();
@@ -2385,7 +2385,7 @@ function render() {
   renderCounters();
   renderShell();
   $('openFiltersTop')?.classList.toggle('has-active', hasActiveFilters());
-  $('undoBtn').disabled = state.history.length === 0;
+  if ($('undoBtn')) $('undoBtn').disabled = state.history.length === 0;
   if (state.screen === 'filters') renderFilters();
   if (state.screen === 'profile') renderProfile();
   if (state.screen === 'map') renderMap();
