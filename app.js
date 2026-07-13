@@ -104,6 +104,8 @@ const I18N = {
     nextPhoto: 'Следующее фото',
     photoFullAlt: 'Фото жилья на весь экран',
     photoProgress: 'Фото {current} из {total}',
+    photoDownloading: 'Загружаем фото',
+    photoLoadFailed: 'Фото не загрузилось',
     showPhoto: 'Показать фото {number}',
     homePhoto: '{title} фото {number}',
     viewerPhotoAlt: '{title} фото {number}',
@@ -224,6 +226,8 @@ const I18N = {
     nextPhoto: 'Next photo',
     photoFullAlt: 'Full-screen home photo',
     photoProgress: 'Photo {current} of {total}',
+    photoDownloading: 'Loading photo',
+    photoLoadFailed: 'Photo failed to load',
     showPhoto: 'Show photo {number}',
     homePhoto: '{title} photo {number}',
     viewerPhotoAlt: '{title} photo {number}',
@@ -1291,10 +1295,11 @@ function cardMarkup(home, depth) {
   }
   if (home.kind === 'ad') {
     return `
-      <div class="photo">
+      <div class="photo is-loading">
         <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="480" />
         <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="960" />
         <div class="shade"></div>
+        ${imageDownloadMarkup(depth)}
       </div>
       <div class="card-chips">
         <div class="chip-line">
@@ -1316,10 +1321,11 @@ function cardMarkup(home, depth) {
     `;
   }
   return `
-    <div class="photo">
+    <div class="photo is-loading">
       <img class="photo-bg" src="${escapeHTML(bgPhoto)}" alt="" aria-hidden="true" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="480" />
       <img class="photo-main" src="${escapeHTML(cardPhoto)}" alt="${escapeHTML(home.title)}" draggable="false" data-home-id="${escapeHTML(home.id)}" data-photo-index="${selectedPhoto}" data-photo-width="960" />
       <div class="shade"></div>
+      ${imageDownloadMarkup(depth)}
       ${home.photos.length > 1 ? `<div class="photo-rail" role="progressbar" aria-label="${escapeHTML(t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }))}" aria-valuemin="1" aria-valuemax="${home.photos.length}" aria-valuenow="${selectedPhoto + 1}"><span style="width: ${progressPercent}%"></span></div>` : ''}
     </div>
     <div class="card-chips">
@@ -1338,6 +1344,16 @@ function cardMarkup(home, depth) {
       <div class="card-specs">
         ${specs.map((spec, index) => `<span>${specIcon(index)}${escapeHTML(spec)}</span>`).join('')}
       </div>
+    </div>
+  `;
+}
+
+function imageDownloadMarkup(depth) {
+  return `
+    <div class="image-download-state" role="status" aria-live="${depth === 0 ? 'polite' : 'off'}">
+      <span class="image-download-spinner" aria-hidden="true"><i>V</i></span>
+      <strong class="image-download-loading">${escapeHTML(t('photoDownloading'))}</strong>
+      <strong class="image-download-error">${escapeHTML(t('photoLoadFailed'))}</strong>
     </div>
   `;
 }
@@ -1404,7 +1420,6 @@ function setViewMode(mode) {
   state.viewMode = mode === 'list' ? 'list' : 'swipe';
   $$('.view-toggle-button').forEach((button) => button.classList.toggle('is-active', button.dataset.view === state.viewMode));
   $('swipeView').classList.toggle('is-hidden', state.viewMode !== 'swipe');
-  $('actionsLabel').classList.toggle('is-hidden', state.viewMode !== 'swipe');
   $('discoverList').classList.toggle('is-hidden', state.viewMode !== 'list');
   if (state.viewMode === 'list') renderDiscoverList();
   else renderDeck();
@@ -1458,11 +1473,26 @@ function handleImageError(event) {
   if (!home?.photos?.length) return;
   const currentIndex = Number(image.dataset.photoIndex || 0);
   const attempts = Number(image.dataset.fallbackAttempts || 0);
-  if (attempts >= home.photos.length) return;
+  const photo = image.classList.contains('photo-main') ? image.closest('.photo') : null;
+  if (attempts >= home.photos.length - 1) {
+    photo?.classList.remove('is-loading');
+    photo?.classList.add('is-error');
+    return;
+  }
   const nextIndex = (currentIndex + 1) % home.photos.length;
   image.dataset.photoIndex = String(nextIndex);
   image.dataset.fallbackAttempts = String(attempts + 1);
+  photo?.classList.add('is-loading');
+  photo?.classList.remove('is-error');
   image.src = thumbUrl(home.photos[nextIndex], Number(image.dataset.photoWidth || 960));
+}
+
+function handleImageLoad(event) {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.classList.contains('photo-main')) return;
+  const photo = image.closest('.photo');
+  photo?.classList.remove('is-loading', 'is-error');
+  delete image.dataset.fallbackAttempts;
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -1767,8 +1797,14 @@ function refreshTopCardPhoto(home) {
   const image = card.querySelector('.photo-main');
   const progress = card.querySelector('.photo-rail');
   const progressFill = card.querySelector('.photo-rail span');
-  if (bg) bg.src = nextSrc;
-  if (image) image.src = nextSrc;
+  if (bg) bg.src = thumbUrl(nextSrc, 480);
+  if (image) {
+    const photo = image.closest('.photo');
+    photo?.classList.add('is-loading');
+    photo?.classList.remove('is-error');
+    image.dataset.fallbackAttempts = '0';
+    image.src = thumbUrl(nextSrc, 960);
+  }
   if (progress) {
     progress.setAttribute('aria-label', t('photoProgress', { current: selectedPhoto + 1, total: home.photos.length }));
     progress.setAttribute('aria-valuenow', String(selectedPhoto + 1));
@@ -2274,7 +2310,7 @@ function bind() {
   });
   $('undoBtn')?.addEventListener('click', undoLastSwipe);
   $('skipBtn')?.addEventListener('click', () => animateAndAdvance('left'));
-  $('likeBtn').addEventListener('click', () => animateAndAdvance('right', { save: true }));
+  $('likeBtn')?.addEventListener('click', () => animateAndAdvance('right', { save: true }));
   $('infoBtn')?.addEventListener('click', openCardInfo);
   $('resetDeckBtn').addEventListener('click', () => {
     resetQueue({ clearSeen: true });
@@ -2366,6 +2402,7 @@ function bind() {
   });
 
   bindFilters();
+  document.addEventListener('load', handleImageLoad, true);
   document.addEventListener('error', handleImageError, true);
 }
 

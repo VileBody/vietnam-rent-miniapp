@@ -721,6 +721,79 @@ html[data-theme="warm"] .filter-head h2 {
   object-fit: cover;
 }
 
+.image-download-state {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  background: rgba(16, 22, 32, .28);
+  color: #fff;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+  transition: opacity .18s ease, visibility .18s ease;
+}
+
+.photo.is-loading .image-download-state,
+.photo.is-error .image-download-state {
+  opacity: 1;
+  visibility: visible;
+}
+
+.image-download-spinner {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, .28);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: image-download-spin .9s linear infinite;
+}
+
+.image-download-spinner i {
+  font-family: var(--display);
+  font-size: 22px;
+  font-style: normal;
+  font-weight: 700;
+  animation: image-download-counter-spin .9s linear infinite;
+}
+
+.image-download-state strong {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(16, 22, 32, .5);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.image-download-error {
+  display: none;
+}
+
+.photo.is-error .image-download-spinner,
+.photo.is-error .image-download-loading {
+  display: none;
+}
+
+.photo.is-error .image-download-error {
+  display: block;
+}
+
+@keyframes image-download-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes image-download-counter-spin {
+  to { transform: rotate(-360deg); }
+}
+
 .home-card .shade {
   position: absolute;
   inset: 0;
@@ -2427,7 +2500,7 @@ html.is-telegram .tab svg {
 
   .screen-discover .deck-wrap {
     align-self: center;
-    width: min(100%, max(248px, calc((var(--app-height) - 275px) * .8)));
+    width: min(100%, max(248px, calc((var(--app-height) - 226px) * .8)));
   }
 
   .quick-chip {
