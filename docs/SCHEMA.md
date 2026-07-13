@@ -77,6 +77,13 @@ Key fields:
 - `id`: stable listing id, currently the external listing id
 - `source`, `source_url`, `canonical_url`
 - `city`, `area`, `location_id`
+- extracted address fields: `location_city`, `location_district`, `location_ward`,
+  `location_street`, `location_building`, `location_landmark`
+- source coordinates: `source_latitude`, `source_longitude`
+- OpenStreetMap result: `geocoded_latitude`, `geocoded_longitude`,
+  `geocoder_place_id`, `geocoder_display_name`, `geocoder_raw`
+- geocoding quality: `location_precision`, `location_confidence`,
+  `geocode_distance_m`, `geocoding_status`, `geocoded_at`
 - `title`, `about`
 - `home_type`, `property_type`
 - `price_usd`, `price_currency`, `price_period`, `deposit_amount`
@@ -139,6 +146,12 @@ Useful statuses:
 - `login_required`
 - `blocked`
 - `error`
+
+### geocoding_cache
+
+Cached Nominatim search responses keyed by provider, normalized query and country.
+The cache makes the one-time enrichment resumable and avoids repeating public API
+requests for duplicate addresses.
 
 ### app_users / user_favorites
 

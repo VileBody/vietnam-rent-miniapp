@@ -47,6 +47,20 @@ type Listing struct {
 	LastSeenAt         time.Time `json:"lastSeenAt"`
 	Latitude           *float64  `json:"latitude,omitempty"`
 	Longitude          *float64  `json:"longitude,omitempty"`
+	SourceLatitude     *float64  `json:"sourceLatitude,omitempty"`
+	SourceLongitude    *float64  `json:"sourceLongitude,omitempty"`
+	LocationCity       string    `json:"locationCity,omitempty"`
+	LocationDistrict   string    `json:"locationDistrict,omitempty"`
+	LocationWard       string    `json:"locationWard,omitempty"`
+	LocationStreet     string    `json:"locationStreet,omitempty"`
+	LocationBuilding   string    `json:"locationBuilding,omitempty"`
+	LocationLandmark   string    `json:"locationLandmark,omitempty"`
+	LocationPrecision  string    `json:"locationPrecision,omitempty"`
+	LocationConfidence *float64  `json:"locationConfidence,omitempty"`
+	GeocodedLatitude   *float64  `json:"geocodedLatitude,omitempty"`
+	GeocodedLongitude  *float64  `json:"geocodedLongitude,omitempty"`
+	GeocodeDistanceM   *int      `json:"geocodeDistanceM,omitempty"`
+	GeocodingStatus    string    `json:"geocodingStatus,omitempty"`
 }
 
 type Contact struct {
@@ -371,6 +385,30 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS area_sqm numeric(8,2);
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS floor int;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS latitude numeric(9,6);
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS longitude numeric(9,6);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_latitude numeric(10,7);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_longitude numeric(10,7);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_city text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_district text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_ward text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_street text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_house_number text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_building text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_landmark text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_address_text text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_query text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_precision text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_confidence numeric(4,3);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS location_extracted jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoded_latitude numeric(10,7);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoded_longitude numeric(10,7);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoder_provider text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoder_place_id text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoder_display_name text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoder_raw jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocode_distance_m int;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoding_status text NOT NULL DEFAULT 'pending';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoding_error text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS geocoded_at timestamptz;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS furnished boolean;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS has_pool boolean;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS has_gym boolean;
@@ -386,6 +424,28 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS stale_at timestamptz;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS removed_at timestamptz;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS last_checked_at timestamptz;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS check_fail_count int NOT NULL DEFAULT 0;
+
+UPDATE listings
+SET source_latitude = latitude,
+    source_longitude = longitude
+WHERE source_latitude IS NULL
+  AND source_longitude IS NULL
+  AND latitude IS NOT NULL
+  AND longitude IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_listings_geocoding_status
+  ON listings (geocoding_status, geocoded_at);
+
+CREATE TABLE IF NOT EXISTS geocoding_cache (
+  provider text NOT NULL,
+  query text NOT NULL,
+  country_code text NOT NULL DEFAULT 'vn',
+  response jsonb NOT NULL DEFAULT '[]',
+  result_count int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (provider, query, country_code)
+);
 
 CREATE TABLE IF NOT EXISTS raw_marketplace_items (
   id bigserial PRIMARY KEY,
@@ -2224,7 +2284,12 @@ SELECT
   id, title, area, city, home_type, price_usd, match_score, source, fresh,
   specs, details, tags, about, contact_name, contact_line, contact_value,
   fb_url, photos, pet_friendly, listing_status, availability_status, first_seen_at, last_seen_at,
-  latitude, longitude
+  latitude, longitude, source_latitude, source_longitude,
+  coalesce(location_city, ''), coalesce(location_district, ''), coalesce(location_ward, ''),
+  coalesce(location_street, ''), coalesce(location_building, ''), coalesce(location_landmark, ''),
+  coalesce(location_precision, ''), location_confidence::float8,
+  geocoded_latitude::float8, geocoded_longitude::float8, geocode_distance_m,
+  coalesce(geocoding_status, '')
 FROM listings`
 
 type scanner interface {
@@ -2370,6 +2435,20 @@ func scanListing(row scanner) (Listing, error) {
 		&listing.LastSeenAt,
 		&listing.Latitude,
 		&listing.Longitude,
+		&listing.SourceLatitude,
+		&listing.SourceLongitude,
+		&listing.LocationCity,
+		&listing.LocationDistrict,
+		&listing.LocationWard,
+		&listing.LocationStreet,
+		&listing.LocationBuilding,
+		&listing.LocationLandmark,
+		&listing.LocationPrecision,
+		&listing.LocationConfidence,
+		&listing.GeocodedLatitude,
+		&listing.GeocodedLongitude,
+		&listing.GeocodeDistanceM,
+		&listing.GeocodingStatus,
 	)
 	return listing, err
 }

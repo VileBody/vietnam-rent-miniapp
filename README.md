@@ -72,6 +72,27 @@ curl 'http://127.0.0.1:8080/api/listings?include_inactive=true'
 curl 'http://127.0.0.1:8080/api/listings?status=stale'
 ```
 
+## Геокодирование объявлений
+
+Команда извлекает адресные сущности из заголовка, описания и raw metadata через
+OpenRouter, затем геокодирует их через Nominatim. Результаты и полный provenance
+сохраняются в `listings`, одинаковые OSM-запросы кэшируются в `geocoding_cache`.
+
+```bash
+export DATABASE_URL='postgres://vietnest:vietnest@127.0.0.1:5433/mock-marketplace?sslmode=disable'
+export OPENROUTER_API_KEY='...'
+export OPENROUTER_GEOCODING_MODEL='google/gemini-2.5-flash'
+export NOMINATIM_USER_AGENT='VietNest/1.0 (+https://vietnam.teamgenius.ru/)'
+
+go run ./scripts/geocode_listings -limit 3 -dry-run
+go run ./scripts/geocode_listings
+```
+
+Процесс resumable: по умолчанию он выбирает только строки без `geocoded_at`.
+Публичный Nominatim вызывается последовательно с паузой не менее одной секунды.
+Исходные координаты Facebook сохраняются как `sourceLatitude/sourceLongitude`,
+OSM-результат возвращается отдельно как `geocodedLatitude/geocodedLongitude`.
+
 ## Схема БД
 
 Схема сделана под пайплайн импорта из Apify:

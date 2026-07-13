@@ -294,6 +294,12 @@ UPDATE listings SET
   bathrooms = coalesce(@bathrooms, bathrooms),
   latitude = coalesce(@latitude, latitude),
   longitude = coalesce(@longitude, longitude),
+  source_latitude = coalesce(@latitude, source_latitude),
+  source_longitude = coalesce(@longitude, source_longitude),
+  geocoding_status = CASE
+    WHEN @latitude IS NOT NULL AND @longitude IS NOT NULL AND geocoded_at IS NULL THEN 'pending'
+    ELSE geocoding_status
+  END,
   furnished = coalesce(@furnished, furnished),
   has_pool = coalesce(@has_pool, has_pool),
   has_gym = coalesce(@has_gym, has_gym),
