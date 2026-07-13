@@ -1058,12 +1058,13 @@ html[data-theme="warm"] .filter-head h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 30px;
 }
 
 .round-action {
   display: grid;
   place-items: center;
+  padding: 0;
   border-radius: 50%;
   background: var(--surface);
   color: var(--sub);
@@ -1111,6 +1112,7 @@ html[data-theme="warm"] .filter-head h2 {
 .round-action.like svg {
   fill: currentColor;
   stroke: none;
+  transform: translateY(2px);
 }
 
 .fly-layer {
@@ -1760,7 +1762,7 @@ html.is-telegram .deck-wrap {
 
 html.is-telegram .actions {
   height: 64px;
-  gap: 22px;
+  gap: 28px;
 }
 
 html.is-telegram .round-action.skip {
@@ -2452,7 +2454,7 @@ html.is-telegram .tab svg {
 
   html.is-telegram .actions {
     height: 54px;
-    gap: 20px;
+    gap: 26px;
   }
 
   html.is-telegram .round-action.skip {
@@ -2483,7 +2485,7 @@ html.is-telegram .tab svg {
   }
 
   .actions {
-    gap: 16px;
+    gap: 22px;
   }
 
   .card-specs {
