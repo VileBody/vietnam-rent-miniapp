@@ -70,6 +70,101 @@ body {
   touch-action: manipulation;
 }
 
+.app-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  background: var(--bg);
+  color: var(--ink);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity .32s ease, visibility .32s ease;
+}
+
+.app-loader.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loader-logo {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--soft-shadow);
+  animation: loader-pulse 1.6s ease-in-out infinite;
+}
+
+.loader-logo span {
+  font-family: var(--display);
+  font-size: 38px;
+  line-height: 1;
+}
+
+.loader-logo i {
+  position: absolute;
+  inset: -7px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--primary);
+  border-radius: 25px;
+  animation: loader-spin 1.15s linear infinite;
+}
+
+.app-loader > strong {
+  margin-top: 20px;
+  font-family: var(--display);
+  font-size: 29px;
+  line-height: 1;
+}
+
+.app-loader > small {
+  margin-top: 8px;
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.loader-progress {
+  width: 112px;
+  height: 3px;
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.loader-progress span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  animation: loader-progress 1.2s ease-in-out infinite;
+}
+
+@keyframes loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loader-pulse {
+  50% { transform: scale(.96); }
+}
+
+@keyframes loader-progress {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(340%); }
+}
+
 html[data-theme="warm"] body {
   background:
     radial-gradient(850px 480px at 50% -110px, rgba(255, 253, 248, .86), transparent 64%),
@@ -550,9 +645,12 @@ html[data-theme="warm"] .filter-head h2 {
 
 .deck-wrap {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 4 / 5;
   min-height: 0;
-  padding: 2px 0 0;
+  margin-top: 8px;
+  padding: 0;
 }
 
 .deck {
@@ -620,7 +718,7 @@ html[data-theme="warm"] .filter-head h2 {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .home-card .shade {
@@ -1646,7 +1744,15 @@ html.is-telegram .icon-button svg {
 }
 
 html.is-telegram .deck-wrap {
-  padding-top: 0;
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-logo,
+  .loader-logo i,
+  .loader-progress span {
+    animation-duration: 2.4s;
+  }
 }
 
 html.is-telegram .actions {
@@ -2307,6 +2413,25 @@ html.is-telegram .tab svg {
     padding: 7px 9px;
   }
 
+  .trip-panel span,
+  .trip-panel p {
+    display: none;
+  }
+
+  .trip-panel strong {
+    margin-top: 0;
+    font-size: 12px;
+  }
+
+  .screen-discover .quick-rail {
+    display: none;
+  }
+
+  .screen-discover .deck-wrap {
+    align-self: center;
+    width: min(100%, max(248px, calc((var(--app-height) - 285px) * .8)));
+  }
+
   .quick-chip {
     padding: 6px 9px;
   }
@@ -2337,7 +2462,7 @@ html.is-telegram .tab svg {
   }
 
   html.is-telegram .actions {
-    height: 68px;
+    height: 60px;
     gap: 16px;
   }
 

@@ -12,6 +12,15 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  <section class="app-loader" id="appLoader" aria-live="polite" aria-label="Загрузка приложения">
+    <div class="loader-logo" aria-hidden="true">
+      <span>V</span>
+      <i></i>
+    </div>
+    <strong>VietNest</strong>
+    <small id="loaderText">Подбираем варианты</small>
+    <div class="loader-progress" aria-hidden="true"><span></span></div>
+  </section>
   <div class="app-shell">
     <header class="shell-topbar">
       <button class="location-pill" id="cityShortcut" type="button" aria-label="Выбрать город">

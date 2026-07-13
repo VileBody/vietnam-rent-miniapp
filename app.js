@@ -19,6 +19,8 @@ const STORAGE = {
 const I18N = {
   ru: {
     topSubtitle: 'Аренда жилья во Вьетнаме',
+    loading: 'Подбираем варианты',
+    loadingAria: 'Загрузка приложения',
     region: 'регион',
     shellSubtitle: 'аренда для поездки',
     currentSearchKicker: 'текущий поиск',
@@ -137,6 +139,8 @@ const I18N = {
   },
   en: {
     topSubtitle: 'Vietnam rentals',
+    loading: 'Finding your next home',
+    loadingAria: 'Loading application',
     region: 'region',
     shellSubtitle: 'rentals for your trip',
     currentSearchKicker: 'current search',
@@ -474,6 +478,8 @@ function currencyOptions() {
 
 function applyI18n() {
   document.documentElement.lang = activeLanguage;
+  setText('loaderText', t('loading'));
+  setAria('appLoader', t('loadingAria'));
   setText('topSubtitle', t('topSubtitle'));
   setText('shellCityCaption', t('region'));
   setText('shellBrandSubtitle', t('shellSubtitle'));
@@ -732,6 +738,37 @@ function preloadPhotos(urls) {
     image.decoding = 'async';
     image.src = url;
   });
+}
+
+function waitForImage(url) {
+  if (!url) return Promise.resolve();
+  return new Promise((resolve) => {
+    const image = new Image();
+    const done = () => resolve();
+    image.onload = done;
+    image.onerror = done;
+    image.decoding = 'async';
+    image.src = url;
+    if (image.complete) done();
+  });
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function waitForInitialAssets() {
+  const criticalHomes = ensureQueue().filter((home) => home.kind === 'listing').slice(0, 3);
+  const imagePromises = criticalHomes.map((home) => waitForImage(thumbUrl(home.photos[0], 960)));
+  const fontPromise = document.fonts?.ready || Promise.resolve();
+  await Promise.allSettled([
+    withTimeout(fontPromise, 5000, 'font loading timeout'),
+    ...imagePromises.map((promise) => withTimeout(promise, 6000, 'image loading timeout')),
+  ]);
+}
+
+function hideAppLoader() {
+  $('appLoader')?.classList.add('is-hidden');
 }
 
 function thumbUrl(url, width = 640) {
@@ -2356,6 +2393,8 @@ function render() {
 }
 
 async function init() {
+  const loaderStartedAt = Date.now();
+  const loaderFailsafe = window.setTimeout(hideAppLoader, 12000);
   try {
     tg?.ready?.();
     tg?.expand?.();
@@ -2369,10 +2408,18 @@ async function init() {
   bind();
   applyI18n();
   renderFilters();
-  await loadSession();
-  await loadHomes();
-  resetQueue();
-  render();
+  try {
+    await loadSession();
+    await loadHomes();
+    resetQueue();
+    render();
+    await waitForInitialAssets();
+  } finally {
+    const remainingAnimationTime = Math.max(0, 650 - (Date.now() - loaderStartedAt));
+    if (remainingAnimationTime) await delay(remainingAnimationTime);
+    window.clearTimeout(loaderFailsafe);
+    hideAppLoader();
+  }
 }
 
 init();
