@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">VietNest bot logo</title>
+  <desc id="description">A blue V monogram on a warm white rounded square with coral and blue orbit accents.</desc>
+  <rect width="1024" height="1024" rx="224" fill="#F7F2EA"/>
+  <circle cx="512" cy="512" r="348" fill="#FFFFFF" stroke="#DED7CC" stroke-width="20"/>
+  <path d="M257 326A348 348 0 0 1 512 164" fill="none" stroke="#FF7A85" stroke-width="42" stroke-linecap="round"/>
+  <path d="M767 326A348 348 0 0 0 512 164" fill="none" stroke="#3B5BDB" stroke-width="42" stroke-linecap="round"/>
+  <path d="M314 348 487 716c10 22 40 22 50 0l173-368" fill="none" stroke="#3B5BDB" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="257" cy="326" r="20" fill="#FF7A85"/>
+  <circle cx="767" cy="326" r="20" fill="#3B5BDB"/>
+</svg>
