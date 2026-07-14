@@ -48,9 +48,9 @@ spec:
             - name: TADS_DEBUG
               value: "false"
             - name: TADS_TGB_FREQUENCY
-              value: "5"
+              value: "0"
             - name: TADS_FULLSCREEN_FREQUENCY
-              value: "10"
+              value: "0"
             - name: TELEGRAM_SUBSCRIPTION_URL
               value: "https://t.me/nemelokkk"
             - name: TELEGRAM_MINIAPP_URL

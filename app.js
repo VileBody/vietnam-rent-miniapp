@@ -801,15 +801,19 @@ function tadsDebugEnabled() {
 }
 
 function tadsTgbFrequency() {
-  return clamp(Number(window.VIETNEST_TADS_TGB_FREQUENCY || window.VIETNEST_TADS_FREQUENCY || 5), 1, 50);
+  const configured = window.VIETNEST_TADS_TGB_FREQUENCY ?? window.VIETNEST_TADS_FREQUENCY ?? 5;
+  return clamp(Number(configured), 0, 50);
 }
 
 function tadsFullscreenFrequency() {
-  return clamp(Number(window.VIETNEST_TADS_FULLSCREEN_FREQUENCY || 10), 1, 50);
+  return clamp(Number(window.VIETNEST_TADS_FULLSCREEN_FREQUENCY ?? 10), 0, 50);
 }
 
 function tadsEnabled() {
-  return Boolean(tadsTgbWidgetId() || tadsFullscreenWidgetId());
+  return Boolean(
+    (tadsTgbWidgetId() && tadsTgbFrequency() > 0)
+    || (tadsFullscreenWidgetId() && tadsFullscreenFrequency() > 0),
+  );
 }
 
 function ensureTadsScript() {
@@ -926,8 +930,10 @@ function isTadsStaticHome(home) {
 
 function tadsStaticShouldAppearAfter(listingNumber) {
   if (!tadsTgbWidgetId()) return false;
-  if (listingNumber % tadsTgbFrequency() !== 0) return false;
-  return !tadsFullscreenWidgetId() || listingNumber % tadsFullscreenFrequency() !== 0;
+  const frequency = tadsTgbFrequency();
+  if (frequency <= 0 || listingNumber % frequency !== 0) return false;
+  const fullscreenFrequency = tadsFullscreenFrequency();
+  return !tadsFullscreenWidgetId() || fullscreenFrequency <= 0 || listingNumber % fullscreenFrequency !== 0;
 }
 
 function normalizeHome(raw, feedIndex = 0) {
@@ -1702,8 +1708,10 @@ function trackSwipeActions(home, direction, save) {
 
 function shouldShowTadsFullscreen(home) {
   if (home?.kind !== 'listing' || !tadsFullscreenWidgetId()) return false;
+  const frequency = tadsFullscreenFrequency();
+  if (frequency <= 0) return false;
   state.tadsListingSwipes += 1;
-  return state.tadsListingSwipes % tadsFullscreenFrequency() === 0;
+  return state.tadsListingSwipes % frequency === 0;
 }
 
 function showTadsFullscreen(reason = 'listing_breakpoint') {

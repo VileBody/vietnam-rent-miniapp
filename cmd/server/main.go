@@ -1063,7 +1063,7 @@ func adFrequency() int {
 
 func tadsTGBFrequency() int {
 	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("TADS_TGB_FREQUENCY")))
-	if err != nil || value <= 0 {
+	if err != nil || value < 0 {
 		return 5
 	}
 	return value
@@ -1071,7 +1071,7 @@ func tadsTGBFrequency() int {
 
 func tadsFullscreenFrequency() int {
 	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("TADS_FULLSCREEN_FREQUENCY")))
-	if err != nil || value <= 0 {
+	if err != nil || value < 0 {
 		return 10
 	}
 	return value
