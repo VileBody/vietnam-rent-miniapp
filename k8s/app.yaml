@@ -25,7 +25,7 @@ spec:
         - name: craas-ai-native-paas-registry
       containers:
         - name: vietnest
-          image: ai-native-paas-registry.registry.twcstorage.ru/mirror/legacy/vietnest@sha256:1fce7b2260869fe92acf65abf7a63056aad4cd35f61964c9204c81887565de12
+          image: ai-native-paas-registry.registry.twcstorage.ru/mirror/legacy/vietnest@sha256:83c2a1afa37fc98dc726511d6d7a1997847c586bd759309632133d4b5ad63be3
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
