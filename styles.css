@@ -48,14 +48,17 @@ html[data-theme="warm"] {
 
 html {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   background: #dfe4ed;
+  overflow-x: hidden;
   overflow: hidden;
   overscroll-behavior: none;
 }
 
 body {
   width: 100%;
+  max-width: 100%;
   height: var(--app-height);
   min-height: var(--app-height);
   margin: 0;
@@ -65,6 +68,7 @@ body {
   color: var(--ink);
   font-family: var(--body);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
@@ -1910,10 +1914,14 @@ html.is-telegram .tab svg {
   position: fixed;
   inset: 0;
   z-index: 100;
-  width: min(100%, 430px);
+  width: 100%;
+  max-width: 430px;
   margin: 0 auto;
   display: none;
   flex-direction: column;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   background: var(--bg);
 }
 
@@ -1975,9 +1983,12 @@ html.is-telegram .tab svg {
 .detail-body {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   margin-top: -30px;
   padding: 18px 22px 22px;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-x: none;
   position: relative;
 }
 
@@ -1986,6 +1997,11 @@ html.is-telegram .tab svg {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.detail-title > div:first-child,
+.detail-specs div {
+  min-width: 0;
 }
 
 .detail-price {
@@ -2010,6 +2026,7 @@ html.is-telegram .tab svg {
   margin-top: 4px;
   font-size: 16px;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .detail-title p {
@@ -2041,6 +2058,7 @@ html.is-telegram .tab svg {
   margin: 16px -22px 18px;
   padding: 0 22px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 
@@ -2091,6 +2109,7 @@ html.is-telegram .tab svg {
   font-family: var(--display);
   font-size: 17px;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .detail-specs span {
@@ -2115,6 +2134,7 @@ html.is-telegram .tab svg {
   font-size: 13.5px;
   font-weight: 500;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .amenities {
