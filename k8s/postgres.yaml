@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: ai-native-paas-registry.registry.twcstorage.ru/mirror/postgres@sha256:0a8e1e76503c091f0feb387d51b10fcd746c2d61cf6cdd6e8356973a45e40a0f
+          image: ai-native-paas-registry.registry.twcstorage.ru/mirror/postgres@sha256:0a8a1e76503c091f0feb387d51b10fcd746c2d61cf6cdd6e8356973a45e40a0f
           imagePullPolicy: IfNotPresent
           ports:
             - name: postgres
