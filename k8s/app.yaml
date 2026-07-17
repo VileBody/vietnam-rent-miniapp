@@ -22,11 +22,11 @@ spec:
         vietnest.teamgenius.ru/rollout-at: "2026-07-17T16:23:14Z"
     spec:
       imagePullSecrets:
-        - name: ghcr-pull
+        - name: craas-ai-native-paas-registry
       containers:
         - name: vietnest
-          image: ghcr.io/vilebody/vietnam-rent-miniapp:main
-          imagePullPolicy: Always
+          image: ai-native-paas-registry.registry.twcstorage.ru/mirror/legacy/vietnest@sha256:1fce7b2260869fe92acf65abf7a63056aad4cd35f61964c9204c81887565de12
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
