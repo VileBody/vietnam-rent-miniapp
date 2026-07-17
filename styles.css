@@ -2145,12 +2145,14 @@ html.is-telegram .tab svg {
 }
 
 .amenities span {
+  max-width: 100%;
   padding: 8px 13px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface);
   font-size: 12.5px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .detail-actions {

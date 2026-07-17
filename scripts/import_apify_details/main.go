@@ -234,7 +234,7 @@ func updateListing(ctx context.Context, tx pgx.Tx, existing existingListing, ite
 	tags = union(existing.Tags, tags)
 	amenities = union(existing.Amenities, amenities)
 	specs := listingSpecs(priceUSD, joinedText, area)
-	details := union(existing.Details, detailLabels(item, sourceURL))
+	details := union(existing.Details, detailLabels(item))
 	listingStatus, availabilityStatus, availabilityCheck := statuses(item)
 	lat, lng := coordinates(item.Location)
 
@@ -594,11 +594,8 @@ func listingSpecs(price int, text, area string) []string {
 	return compact(specs)
 }
 
-func detailLabels(item detailItem, sourceURL string) []string {
+func detailLabels(item detailItem) []string {
 	labels := []string{"Facebook Marketplace detail refreshed"}
-	if sourceURL != "" {
-		labels = append(labels, sourceURL)
-	}
 	if location := locationLabel(item.Location); location != "" {
 		labels = append(labels, location)
 	}

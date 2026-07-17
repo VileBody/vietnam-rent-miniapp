@@ -2052,6 +2052,14 @@ function detailSpecItems(home) {
   return result.slice(0, 6);
 }
 
+function displayAmenities(home) {
+  const isURL = (value) => /^(?:https?:\/\/|www\.)/i.test(value);
+  return [...new Set([...home.tags, ...home.details]
+    .map(cleanText)
+    .filter((value) => value && !isURL(value)))]
+    .slice(0, 10);
+}
+
 function openDetail(home = currentHome(), { track = true } = {}) {
   if (!home) return;
   state.activeDetailId = home.id;
@@ -2065,7 +2073,7 @@ function openDetail(home = currentHome(), { track = true } = {}) {
   $('detailGallery').innerHTML = home.photos.map((photo, index) => `<button class="detail-thumb${index === state.detailPhotoIndex ? ' is-active' : ''}" data-photo-index="${index}" type="button" aria-label="${escapeHTML(t('showPhoto', { number: index + 1 }))}"><img src="${escapeHTML(thumbUrl(photo, 360))}" alt="${escapeHTML(t('homePhoto', { title: home.title, number: index + 1 }))}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" data-home-id="${escapeHTML(home.id)}" data-photo-index="${index}" data-photo-width="360" /></button>`).join('');
   $('detailSpecs').innerHTML = detailSpecItems(home).map(([main, caption]) => `<div><strong>${escapeHTML(main)}</strong><span>${escapeHTML(caption)}</span></div>`).join('');
   $('detailAbout').textContent = home.about;
-  const amenities = [...new Set([...home.tags, ...home.details])].filter(Boolean).slice(0, 10);
+  const amenities = displayAmenities(home);
   $('detailAmenities').innerHTML = (amenities.length ? amenities : ['Facebook Marketplace', home.source]).map((tag) => `<span>${escapeHTML(tag)}</span>`).join('');
   $('detailPrimaryBtn').textContent = state.favorites.has(home.id)
     ? (contactsLocked() ? t('openContacts') : t('openOriginal'))
